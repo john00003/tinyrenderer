@@ -12,6 +12,7 @@ Model::Model(const char *filename) : verts_(), faces_() {
     in.open (filename, std::ifstream::in);
     if (in.fail()) return;
     std::string line;
+    bool check = true;
     while (!in.eof()) {
         std::getline(in, line);
         std::istringstream iss(line.c_str());
@@ -28,7 +29,9 @@ Model::Model(const char *filename) : verts_(), faces_() {
             // and the format "f 16504 16660 16659"
             iss >> trash;
             iss >> idx;     // read first index
-            f.push_back(idx);
+            if (check)
+                std::cout << idx - 1 << std::endl;
+            f.push_back(idx-1); // in wavefront obj all indices start at 1, not zero
             int c = iss.peek();
             if (c == 47) // if c == "/"
             {
@@ -36,6 +39,8 @@ Model::Model(const char *filename) : verts_(), faces_() {
                 while (iss >> idx >> trash >> itrash >> trash >> itrash) {
                     idx--; // in wavefront obj all indices start at 1, not zero
                     f.push_back(idx);
+                    if (check)
+                        std::cout << idx << std::endl;
                 }
             } else
             {
@@ -43,13 +48,15 @@ Model::Model(const char *filename) : verts_(), faces_() {
                 {
                     idx--; // in wavefront obj all indices start at 1, not zero
                     f.push_back(idx);
+                    if (check)
+                        std::cout << idx << std::endl;
                 }
             }
 
             faces_.push_back(f);
+            check = false;
         }
     }
-    std::cerr << "# v# " << verts_.size() << " f# "  << faces_.size() << std::endl;
 }
 
 Model::~Model() {
