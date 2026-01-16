@@ -1,0 +1,29 @@
+Barycentric Coordinates
+
+to express a point relative to a set of reference points
+
+1D barycentric coordinates: suppose A,B \in real numbers
+given a point P we can express P as alpha * A + beta * B, a weighted combination of the two reference points
+
+origins: greek word for heavy, used in center of mass computations
+    barycenter: if we placed alpha kg at A, and beta kg at B, the barycenter would be point P.
+        note that if we placed c*alpha kg at A, and c*beta kg at B, the barycenter would remain as P.
+        convention: alpha + beta = 1 to get rid of non-uniqueness
+        this means that P must be between A and B, unless we can put negative kg at point A or B.
+
+two systems of equations:
+    1 = alpha + beta
+    P = alpha*A + beta*B
+
+we can substitute and solve for alpha and beta
+P - beta*B = alpha*A -> (P - beta*B)/A = alpha
+beta = 1 - alpha
+
+substitute second into first: P = alpha*A + (1-alpha)*B -> P = alpha*A + B - alpha*B -> P - B = alpha*(A-B) -> (P-B)/(A-B) = alpha
+substitute that into second: beta = 1 - (P-B)/(A-B)
+
+NOTE: alpha and beta can be negative, but if either are negative, then one coordinate is negative
+
+
+2D barycentric coordinates:
+to determine if any point P is inside a triangle

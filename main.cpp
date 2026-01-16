@@ -134,6 +134,109 @@ void triangleWithFill(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &
 
 }
 
+std::vector<Vec2i> computeBoundingBox(std::vector<Vec2i> &vertices)
+{
+    // takes as input a vector of three vertices sorted by x coordinate
+    std::vector<Vec2i> bbox;
+    int minX = vertices[0].x;
+    int maxX = vertices[2].x;
+
+    int minY = std::numeric_limits<int>::max();
+    int maxY = std::numeric_limits<int>::min();
+
+    for (auto v:vertices)
+    {
+        minY = std::min(minY, v.y);
+        maxY = std::max(maxY, v.y);
+        // minX = std::min(minX, v.x);  // for more general routine that can take any number of input vertices we could do this
+        // maxX = std::max(maxX, v.x);
+    }
+
+    bbox.emplace_back(minX, minY);
+    bbox.emplace_back(maxX, maxY);
+
+    return bbox;
+}
+
+bool pointInTriangle(int i, int j, std::vector<Vec2i> &vertices)
+{
+    // vertices are the three vertices that define a triangle, sorted by x values
+
+    // first we check that vertices[0].x <= j <= vertices[2].x
+        // if not we return false
+    // then we check whether vertices[0].x <= j < vertices[1].x or if vertices[1].x <= j <= vertices[2].x
+    // then we compute min and max y at j using either the lines from either vertices[0]  to vertices[1] and vertices[2] or the lines from vertices[1] to vertices[2] and vertices[0] to vertices[2]
+
+    if (j > vertices[2].x || j < vertices[0].x)
+        return false;
+
+    int yMin;
+    int yMax;
+
+    int total_width = vertices[2].x - vertices[0].x;
+
+    if (j < vertices[1].x)
+    {
+        int dx = vertices[1].x - vertices[0].x;
+        int y0 = vertices[0].y + (vertices[1].y - vertices[0].y) * (j - vertices[0].x) / dx;
+        int y1 = vertices[0].y + (vertices[2].y - vertices[0].y) * (j - vertices[0].x) / total_width;
+        yMin = std::min(y0, y1);
+        yMax = std::max(y0, y1);
+    } else
+    {
+        int dx = vertices[2].x - vertices[1].x;
+        int y0 = vertices[1].y + (vertices[2].y - vertices[1].y) * (j - vertices[1].x) / dx;
+        int y1 = vertices[0].y + (vertices[2].y - vertices[0].y) * (j - vertices[0].x) / total_width;
+        yMin = std::min(y0, y1);
+        yMax = std::max(y0, y1);
+    }
+
+    if (i < yMin || i > yMax)
+        return false;
+
+    return true;
+}
+
+double signedTriangleArea(int ax, int ay, int bx, int by, int cx, int cy)
+{
+    return .5*((by-ay)*(bx+ax) + (cy-by)*(cx+bx) + (ay-cy)*(ax+cx));
+    //return .5 * ((ax - cx)*(by - ay) - (ax - bx)*(cy - ay));
+    //return .5 * ((ax - bx) * (ay + by) + (cx - bx) * (cy + by) + (ax - cx) * (ay + cy));
+}
+
+bool pointInTriangleBarycentricMethod(int px, int py, std::vector<Vec2i> &vertices)
+{
+    double totalArea = signedTriangleArea(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
+
+    double alpha = signedTriangleArea(px, py, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y) / totalArea;
+    double beta = signedTriangleArea(px, py, vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y) / totalArea;
+    double gamma = signedTriangleArea(px, py, vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y) / totalArea;
+
+    if (alpha<0 || beta<0 || gamma<0)
+        return false;
+    return true;
+}
+
+void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuffer, TGAColor color)
+{
+    Vec2i point1(ax, ay);
+    Vec2i point2(bx, by);
+    Vec2i point3(cx, cy);
+    std::vector<Vec2i> vertices{point1, point2, point3};
+    sortTriangleVerticesByX(vertices);
+
+    std::vector<Vec2i> bbox = computeBoundingBox(vertices);
+
+    for (int i=bbox[0].y; i<bbox[1].y; i++)
+    {
+        for (int j=bbox[0].x; j<bbox[1].x; j++)
+        {
+            if (pointInTriangleBarycentricMethod(j,i, vertices))
+                framebuffer.set(j, i, color);
+        }
+    }
+}
+
 
 
 int main(int argc, char **argv)
@@ -211,9 +314,9 @@ int main(int argc, char **argv)
     // return 0;
 
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    triangleWithFill(  7, 45, 35, 100, 45,  60, framebuffer, red);
+    triangleWithFillBoundingBoxMethod(  7, 45, 35, 100, 45,  60, framebuffer, red);
     triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
-    triangleWithFill(115, 83, 80,  90, 85, 120, framebuffer, green);
+    triangleWithFillBoundingBoxMethod(115, 83, 80,  90, 85, 120, framebuffer, green);
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
