@@ -232,9 +232,16 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
         for (int j=bbox[0].x; j<bbox[1].x; j++)
         {
             if (pointInTriangleBarycentricMethod(j,i, vertices))
+            {
                 framebuffer.set(j, i, color);
+            }
         }
     }
+}
+
+std::pair<int, int> convertVec3fToXY(Vec3f &&v, int width, int height)
+{
+    return std::make_pair((v.x+1.)*width/2., (v.y+1.)*height/2.);
 }
 
 
@@ -313,11 +320,41 @@ int main(int argc, char **argv)
     // image.write_tga_file("output.tga");
     // return 0;
 
-    TGAImage framebuffer(width, height, TGAImage::RGB);
-    triangleWithFillBoundingBoxMethod(  7, 45, 35, 100, 45,  60, framebuffer, red);
-    triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
-    triangleWithFillBoundingBoxMethod(115, 83, 80,  90, 85, 120, framebuffer, green);
-    framebuffer.write_tga_file("framebuffer.tga");
+    
+    // DRAW FILLED TRIANGLES
+
+    // TGAImage framebuffer(width, height, TGAImage::RGB);
+    // triangleWithFillBoundingBoxMethod(  7, 45, 35, 100, 45,  60, framebuffer, red);
+    // triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
+    // triangleWithFillBoundingBoxMethod(115, 83, 80,  90, 85, 120, framebuffer, green);
+    // framebuffer.write_tga_file("framebuffer.tga");
+    // return 0;
+    //
+    //
+
+
+    // DRAW FILLED TRAINGLES ON MODEL
+    if (2==argc) {
+        model = new Model(argv[1]);
+    } else {
+        model = new Model("../obj/diablo3_pose.obj");
+    }
+
+    TGAImage image(800, 800, TGAImage::RGB);
+
+    for (int i=0; i<model->nfaces(); i++)
+    {
+        std::vector<int> face = model->face(i);
+        auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
+        auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
+        auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
+        std::srand(std::time({}));
+        const TGAColor randColor = {rand()%255, rand()%255, rand()%255, rand()%255};
+        triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
+    }
+    image.flip_vertically();
+    image.write_tga_file("model_with_faces.tga");
+
     return 0;
 }
 
