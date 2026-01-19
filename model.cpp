@@ -5,7 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <numeric>
 #include "model.h"
+
+#include <algorithm>
 
 Model::Model(const char *filename) : verts_(), faces_() {
     std::ifstream in;
@@ -76,4 +79,32 @@ std::vector<int> Model::face(int idx) {
 
 Vec3f Model::vert(int i) {
     return verts_[i];
+}
+
+void Model::sortFaces()
+{
+    std::vector<int> idx(nfaces());
+    std::iota(idx.begin(), idx.end(), 0);
+
+    std::sort(idx.begin(), idx.end(),
+        [&](int a, int b)
+        {
+            std::vector<int> faceA = Model::face(a);
+            std::vector<int> faceB = Model::face(b);
+
+            float minZA = std::min(Model::vert(faceA[0]).z, std::min(Model::vert(faceA[1]).z, Model::vert(faceA[1]).z));
+            float minZB = std::min(Model::vert(faceB[0]).z, std::min(Model::vert(faceB[1]).z, Model::vert(faceB[1]).z));
+
+            return minZA < minZB;
+        }
+    );
+
+    // std::sort(idx.begin(), idx.end(),)
+    std::vector<std::vector<int>> newFaces(nfaces());
+    for (int i = 0; i < nfaces(); i++)
+    {
+        newFaces[i] = Model::face(idx[i]);
+    }
+
+    faces_ = newFaces;
 }

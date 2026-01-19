@@ -399,41 +399,47 @@ int main(int argc, char **argv)
 
 
     // DRAW FILLED TRAINGLES ON MODEL
-    // if (2==argc) {
-    //     model = new Model(argv[1]);
-    // } else {
-    //     model = new Model("obj/diablo3_pose.obj");
-    // }
-    //
-    // TGAImage image(800, 800, TGAImage::RGB);
-    // std::srand(std::time({}));
-    //
-    // for (int i=0; i<model->nfaces(); i++)
-    // {
-    //     std::vector<int> face = model->face(i);
-    //     auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
-    //     auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
-    //     auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
-    //     // TGAColor rnd;
-    //     // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
-    //     const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    //     triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
-    // }
-    // image.flip_vertically();
-    // image.write_tga_file("model_with_faces.tga");
-    // return 0;
+    if (2==argc) {
+        model = new Model(argv[1]);
+    } else {
+        model = new Model("obj/diablo3_pose.obj");
+    }
 
-    TGAImage framebuffer(width, height, TGAImage::RGB);
+    model->sortFaces();
+    for (int i=0; i<model->nfaces(); i++)
+    {
+        std::cout << "min Z coord: " << std::min(model->vert(model->face(i)[0]).z, std::min(model->vert(model->face(i)[1]).z, model->vert(model->face(i)[2]).z));
+    }
+
+    TGAImage image(800, 800, TGAImage::RGB);
     std::srand(std::time({}));
-    const TGAColor randColor1 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    const TGAColor randColor2 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    const TGAColor randColor3 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    std::vector<TGAColor> colors = {randColor1, randColor2, randColor3};
-    triangleWithLinearInterpolationOverBarycentric(  7, 45, 35, 100, 45,  60, framebuffer, colors);
-    triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
-    triangleWithLinearInterpolationOverBarycentric(115, 83, 80,  90, 85, 120, framebuffer, colors);
-    framebuffer.write_tga_file("framebuffer.tga");
+
+    for (int i=0; i<model->nfaces(); i++)
+    {
+        std::vector<int> face = model->face(i);
+        auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
+        auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
+        auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
+        // TGAColor rnd;
+        // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
+        const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+        triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
+    }
+    image.flip_vertically();
+    image.write_tga_file("model_painters_alg.tga");
     return 0;
+
+    // TGAImage framebuffer(width, height, TGAImage::RGB);
+    // std::srand(std::time({}));
+    // const TGAColor randColor1 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    // const TGAColor randColor2 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    // const TGAColor randColor3 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    // std::vector<TGAColor> colors = {randColor1, randColor2, randColor3};
+    // triangleWithLinearInterpolationOverBarycentric(  7, 45, 35, 100, 45,  60, framebuffer, colors);
+    // triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
+    // triangleWithLinearInterpolationOverBarycentric(115, 83, 80,  90, 85, 120, framebuffer, colors);
+    // framebuffer.write_tga_file("framebuffer.tga");
+    // return 0;
 }
 
 
