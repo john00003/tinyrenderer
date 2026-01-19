@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <expected>
 #include <iostream>
 #include "tgaimage.h"
 #include "model.h"
@@ -250,6 +251,59 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
     }
 }
 
+std::expected<TGAColor, std::string> pointInTriangleBarycentricMethodWithColorInterpolation(int px, int py, std::vector<Vec2i> &vertices, std::vector<TGAColor> &colors, double totalArea)
+{
+    double alpha = signedTriangleArea(px, py, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y) / totalArea;
+    double beta = signedTriangleArea(px, py, vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y) / totalArea;
+    double gamma = signedTriangleArea(px, py, vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y) / totalArea;
+
+    if (alpha<0 || beta<0 || gamma<0)
+        return std::unexpected("Outside of triangle");;
+//{std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255}
+    //return TGAColor{alpha*colors[0], beta*colors[1], gamma*colors[2], colors[3]};
+    int B = (int)(alpha*colors[0].b + beta*colors[1].b + gamma*colors[2].b) % 255;
+    int G = (int)(alpha*colors[0].g + beta*colors[1].g + gamma*colors[2].g) % 255;
+    int R = (int)(alpha*colors[0].r + beta*colors[1].r + gamma*colors[2].r) % 255;
+    int A = (int)(alpha*colors[0].a + beta*colors[1].a + gamma*colors[2].a) % 255;
+    return TGAColor{B,G,R,A};
+}
+
+void triangleWithLinearInterpolationOverBarycentric(int ax, int ay, int bx, int by, int cx, int cy, TGAImage &framebuffer, std::vector<TGAColor> &colors)
+{
+    Vec2i point1(ax, ay);
+    Vec2i point2(bx, by);
+    Vec2i point3(cx, cy);
+    std::vector<Vec2i> vertices{point1, point2, point3};
+
+    double totalArea = signedTriangleArea(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
+    //std::cout << ax << " " << ay << " " << bx << " " << by << " " << cx << " " << cy << std::endl;
+    // if (totalArea < 1){
+    //     // std::cout << "Total area is less than 1, skipping triangle" << std::endl;
+    //     //std::cout << "Total area:  " << totalArea << std::endl;
+    //     return;
+    // }
+    // else{
+    //     std::cout << "Total area is " << totalArea << ", drawing triangle" << std::endl;
+    //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
+    // }
+    //sortTriangleVerticesByX(vertices);
+    std::vector<Vec2i> bbox = computeBoundingBox(vertices);
+    //std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
+
+    for (int i=bbox[0].y; i<=bbox[1].y; i++)
+    {
+        for (int j=bbox[0].x; j<=bbox[1].x; j++)
+        {
+            auto result = pointInTriangleBarycentricMethodWithColorInterpolation(j,i, vertices, colors, totalArea);
+            if (result)
+            {
+                //std::cout << "drawing at i: " << i << ", " << j << std::endl;
+                framebuffer.set(j, i, *result);
+            }
+        }
+    }
+}
+
 std::pair<int, int> convertVec3fToXY(Vec3f &&v, int width, int height)
 {
     return std::make_pair((v.x+1.)*width/2., (v.y+1.)*height/2.);
@@ -345,29 +399,40 @@ int main(int argc, char **argv)
 
 
     // DRAW FILLED TRAINGLES ON MODEL
-    if (2==argc) {
-        model = new Model(argv[1]);
-    } else {
-        model = new Model("obj/diablo3_pose.obj");
-    }
+    // if (2==argc) {
+    //     model = new Model(argv[1]);
+    // } else {
+    //     model = new Model("obj/diablo3_pose.obj");
+    // }
+    //
+    // TGAImage image(800, 800, TGAImage::RGB);
+    // std::srand(std::time({}));
+    //
+    // for (int i=0; i<model->nfaces(); i++)
+    // {
+    //     std::vector<int> face = model->face(i);
+    //     auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
+    //     auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
+    //     auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
+    //     // TGAColor rnd;
+    //     // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
+    //     const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    //     triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
+    // }
+    // image.flip_vertically();
+    // image.write_tga_file("model_with_faces.tga");
+    // return 0;
 
-    TGAImage image(800, 800, TGAImage::RGB);
+    TGAImage framebuffer(width, height, TGAImage::RGB);
     std::srand(std::time({}));
-
-    for (int i=0; i<model->nfaces(); i++)
-    {
-        std::vector<int> face = model->face(i);
-        auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
-        auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
-        auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
-        // TGAColor rnd;
-        // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
-        const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-        triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
-    }
-    image.flip_vertically();
-    image.write_tga_file("model_with_faces.tga");
-
+    const TGAColor randColor1 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    const TGAColor randColor2 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    const TGAColor randColor3 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    std::vector<TGAColor> colors = {randColor1, randColor2, randColor3};
+    triangleWithLinearInterpolationOverBarycentric(  7, 45, 35, 100, 45,  60, framebuffer, colors);
+    triangle(120, 35, 90,   5, 45, 110, framebuffer, white);
+    triangleWithLinearInterpolationOverBarycentric(115, 83, 80,  90, 85, 120, framebuffer, colors);
+    framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
 
