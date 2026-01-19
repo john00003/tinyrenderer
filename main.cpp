@@ -204,9 +204,8 @@ double signedTriangleArea(int ax, int ay, int bx, int by, int cx, int cy)
     //return .5 * ((ax - bx) * (ay + by) + (cx - bx) * (cy + by) + (ax - cx) * (ay + cy));
 }
 
-bool pointInTriangleBarycentricMethod(int px, int py, std::vector<Vec2i> &vertices)
+bool pointInTriangleBarycentricMethod(int px, int py, std::vector<Vec2i> &vertices, double totalArea)
 {
-    double totalArea = signedTriangleArea(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
 
     double alpha = signedTriangleArea(px, py, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y) / totalArea;
     double beta = signedTriangleArea(px, py, vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y) / totalArea;
@@ -224,14 +223,21 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
     Vec2i point3(cx, cy);
     std::vector<Vec2i> vertices{point1, point2, point3};
     sortTriangleVerticesByX(vertices);
-
+    double totalArea = signedTriangleArea(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
+    if (totalArea < 1){
+        // std::cout << "Total area is less than 1, skipping triangle" << std::endl;
+        return;
+    } else{
+        std::cout << "Total area is " << totalArea << ", drawing triangle" << std::endl;
+        std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
+    } 
     std::vector<Vec2i> bbox = computeBoundingBox(vertices);
 
     for (int i=bbox[0].y; i<bbox[1].y; i++)
     {
         for (int j=bbox[0].x; j<bbox[1].x; j++)
         {
-            if (pointInTriangleBarycentricMethod(j,i, vertices))
+            if (pointInTriangleBarycentricMethod(j,i, vertices, totalArea))
             {
                 framebuffer.set(j, i, color);
             }
@@ -341,6 +347,7 @@ int main(int argc, char **argv)
     }
 
     TGAImage image(800, 800, TGAImage::RGB);
+    std::srand(std::time({}));
 
     for (int i=0; i<model->nfaces(); i++)
     {
@@ -348,8 +355,9 @@ int main(int argc, char **argv)
         auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
         auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
         auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
-        std::srand(std::time({}));
-        const TGAColor randColor = {rand()%255, rand()%255, rand()%255, rand()%255};
+        // TGAColor rnd;
+        // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
+        const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
         triangleWithFillBoundingBoxMethod(ax, ay, bx, by, cx, cy, image, randColor);
     }
     image.flip_vertically();
