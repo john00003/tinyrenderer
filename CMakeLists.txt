@@ -9,3 +9,4 @@ add_executable(mytinyrenderer main.cpp
         model.cpp
         model.h
         geometry.h)
+        #main2.cpp)

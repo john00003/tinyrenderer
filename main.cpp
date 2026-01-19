@@ -148,8 +148,8 @@ std::vector<Vec2i> computeBoundingBox(std::vector<Vec2i> &vertices)
     {
         minY = std::min(minY, v.y);
         maxY = std::max(maxY, v.y);
-        // minX = std::min(minX, v.x);  // for more general routine that can take any number of input vertices we could do this
-        // maxX = std::max(maxX, v.x);
+        minX = std::min(minX, v.x);  // for more general routine that can take any number of input vertices we could do this
+        maxX = std::max(maxX, v.x);
     }
 
     bbox.emplace_back(minX, minY);
@@ -222,20 +222,25 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
     Vec2i point2(bx, by);
     Vec2i point3(cx, cy);
     std::vector<Vec2i> vertices{point1, point2, point3};
-    sortTriangleVerticesByX(vertices);
+
     double totalArea = signedTriangleArea(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
+    //std::cout << ax << " " << ay << " " << bx << " " << by << " " << cx << " " << cy << std::endl;
     if (totalArea < 1){
         // std::cout << "Total area is less than 1, skipping triangle" << std::endl;
+        //std::cout << "Total area:  " << totalArea << std::endl;
         return;
-    } else{
-        std::cout << "Total area is " << totalArea << ", drawing triangle" << std::endl;
-        std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
-    } 
+    }
+    // else{
+    //     std::cout << "Total area is " << totalArea << ", drawing triangle" << std::endl;
+    //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
+    // }
+    //sortTriangleVerticesByX(vertices);
     std::vector<Vec2i> bbox = computeBoundingBox(vertices);
+    //std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
 
-    for (int i=bbox[0].y; i<bbox[1].y; i++)
+    for (int i=bbox[0].y; i<=bbox[1].y; i++)
     {
-        for (int j=bbox[0].x; j<bbox[1].x; j++)
+        for (int j=bbox[0].x; j<=bbox[1].x; j++)
         {
             if (pointInTriangleBarycentricMethod(j,i, vertices, totalArea))
             {
@@ -343,7 +348,7 @@ int main(int argc, char **argv)
     if (2==argc) {
         model = new Model(argv[1]);
     } else {
-        model = new Model("../obj/diablo3_pose.obj");
+        model = new Model("obj/diablo3_pose.obj");
     }
 
     TGAImage image(800, 800, TGAImage::RGB);
