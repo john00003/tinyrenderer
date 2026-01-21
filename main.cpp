@@ -346,6 +346,10 @@ std::expected<int, std::string> pointInTriangleBarycentricMethodWithDepthInterpo
     // int R = (int)(alpha*colors[0].r + beta*colors[1].r + gamma*colors[2].r) % 255;
     // int A = (int)(alpha*colors[0].a + beta*colors[1].a + gamma*colors[2].a) % 255;
     int thisZ = alpha*vertices[0].z + beta*vertices[1].z + gamma*vertices[2].z;
+    // std::cout << "values in pointInTriangle: " << std::endl;
+    // std::cout << thisZ << std::endl;
+    // std::cout << alpha << " " << beta << " " << gamma << std::endl;
+    // std::cout << vertices[0].z << " " << vertices[1].z << " " << vertices[2].z << std::endl;
     return thisZ;
 }
 
@@ -377,16 +381,23 @@ void triangleWithFillPerPixelPainters(std::vector<Vec3i> &vertices, TGAImage &fr
         for (int j=bbox[0].x; j<=bbox[1].x; j++)
         {
             auto result = pointInTriangleBarycentricMethodWithDepthInterpolation(j,i, vertices, totalArea); // returns depth normalized between [0,255]
-            //std::cout << "result: " << *result << std::endl;
+
             if (result)
             {
+                //std::cout << "result: " << *result << std::endl;
                 //std::cout << "point in triangle at " << i << " " << j << std::endl;
                 //float depth = ()
                 if (*result > depthBuffer.get(j, i).r)
                 {
-                    //std::cout << "closer pixel detected" << std::endl;
+                    if (depthBuffer.get(j, i).r != 0)
+                        throw std::invalid_argument("badness");
+                    std::cout << "drawing overtop" << std::endl;
+                    std::cout << *result << std::endl;
+                    std::cout << (int)depthBuffer.get(j, i).r << " " << (int)depthBuffer.get(j, i).g << " " << (int)depthBuffer.get(j, i).b << " " << (int)depthBuffer.get(j, i).a << std::endl;
+                    std::cout << "closer pixel detected" << std::endl;
                     framebuffer.set(j, i, color);
-                    depthBuffer.set(j, i, TGAColor{(int)(*result), (int)(*result), (int)(*result), 255});
+                    depthBuffer.set(j, i, TGAColor((int)(*result), (int)(*result), (int)(*result), 255));
+                    std::cout << "after: " << (int)depthBuffer.get(j, i).r << " " << (int)depthBuffer.get(j, i).g << " " << (int)depthBuffer.get(j, i).b << " " << (int)depthBuffer.get(j, i).a << std::endl;
                 }
 
             }
