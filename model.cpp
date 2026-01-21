@@ -81,6 +81,11 @@ Vec3f Model::vert(int i) {
     return verts_[i];
 }
 
+void Model::setVert(int i, Vec3f v)
+{
+    verts_[i] = v;
+}
+
 void Model::sortFaces()
 {
     std::vector<int> idx(nfaces());
