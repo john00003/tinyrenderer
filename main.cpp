@@ -8,8 +8,13 @@
 #include "tgaimage.h"
 #include "model.h"
 #include "geometry.h"
+//#include "mymath.h"
+//#include <Eigen/Dense>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 Model *model = NULL;
+constexpr double c = 3.; // camera parameter
 
 // const TGAColor white = TGAColor(255, 255, 255, 255);
 // const TGAColor red = TGAColor(255, 0, 0, 255);
@@ -426,7 +431,45 @@ std::vector<Vec3i> transformVertices(std::vector<Vec3f> v, int width, int height
     return result;
 }
 
+Eigen::Matrix3f createRotationMatrix(float x_theta, float y_theta, float z_theta)
+{
+    // convert each angle to radians and form transformation matrix
+    return (Eigen::AngleAxisf(EIGEN_PI / 180 * x_theta, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(EIGEN_PI / 180 * y_theta, Eigen::Vector3f::UnitY()) * Eigen::AngleAxisf(EIGEN_PI / 180 * z_theta, Eigen::Vector3f::UnitZ())).toRotationMatrix();;
+}
 
+void rotateModel(float x_theta, float y_theta, float z_theta)
+{
+    Eigen::Matrix3f rotMatrix = createRotationMatrix(x_theta, y_theta, z_theta);
+    for (int i=0; i<model->nverts(); i++)
+    {
+        Vec3f vert = model->vert(i);
+        //std::cout << "vertices: " << std::endl;
+        //std::cout << vert << std::endl;
+        Eigen::Vector3f v(vert.x, vert.y, vert.z);
+        v = rotMatrix * v;
+        vert.x = v[0];
+        vert.y = v[1];
+        vert.z = v[2];
+        //std::cout << "new vertices: " << std::endl;
+        //std::cout << vert << std::endl;
+        //model->vert(i) = vert;
+        model->setVert(i, vert);
+        //model->verts_[i] = vert;
+    }
+}
+
+// projects all vertices in model using camera parameters
+void projectModel()
+{
+    for (int i=0; i<model->nverts(); i++)
+    {
+        Vec3f vert = model->vert(i);
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        vert = vert * (1./(1.-vert.z/c));
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        model->setVert(i, vert);
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -535,6 +578,9 @@ int main(int argc, char **argv)
     TGAImage depthBuffer(width, height, TGAImage::GRAYSCALE);
     std::srand(std::time({}));
 
+    rotateModel(0, 30, 0);
+    projectModel();
+
     for (int i=0; i<model->nfaces(); i++)
     {
         std::vector<int> face = model->face(i);
@@ -556,9 +602,9 @@ int main(int argc, char **argv)
         triangleWithFillPerPixelPainters(vertices, image, depthBuffer, randColor);
     }
     image.flip_vertically();
-    image.write_tga_file("model_per_pixel_painters_alg.tga");
+    image.write_tga_file("model_projected.tga");
     depthBuffer.flip_vertically();
-    depthBuffer.write_tga_file("depth_buffer_per_pixel_painters_alg.tga");
+    depthBuffer.write_tga_file("depth_projected.tga");
     return 0;
 
     // TGAImage framebuffer(width, height, TGAImage::RGB);
