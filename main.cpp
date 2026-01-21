@@ -389,15 +389,13 @@ void triangleWithFillPerPixelPainters(std::vector<Vec3i> &vertices, TGAImage &fr
                 //float depth = ()
                 if (*result > depthBuffer.get(j, i).val)
                 {
-                    if (depthBuffer.get(j, i).val != 0)
-                        throw std::invalid_argument("badness");
-                    std::cout << "drawing overtop" << std::endl;
-                    std::cout << *result << std::endl;
-                    std::cout << "before: " << (int)depthBuffer.get(j, i).val << std::endl;
-                    std::cout << "closer pixel detected" << std::endl;
+                    //std::cout << "drawing overtop" << std::endl;
+                    //std::cout << *result << std::endl;
+                    //std::cout << "before: " << (int)depthBuffer.get(j, i).val << std::endl;
+                    //std::cout << "closer pixel detected" << std::endl;
                     framebuffer.set(j, i, color);
                     depthBuffer.set(j, i, TGAColor(*result, 1));
-                    std::cout << "after: " << (int)depthBuffer.get(j, i).val << std::endl;
+                    //std::cout << "after: " << (int)depthBuffer.get(j, i).val << std::endl;
                 }
 
             }
@@ -412,9 +410,9 @@ std::pair<int, int> convertVec3fToXY(Vec3f &&v, int width, int height)
 
 Vec3i convertVec3fToVec3i(Vec3f v, int width, int height)
 {
-    std::cout << "values in converter: " << v.x << " " << v.y << " " << v.z << std::endl;
-    std::cout << "width: " << width << " height: " << height << std::endl;
-    std::cout << (v.x+1.)*width/2. << " " << (v.y+1.)*height/2. << " " << (v.z+1.)*255/2. << std::endl;
+    //std::cout << "values in converter: " << v.x << " " << v.y << " " << v.z << std::endl;
+    //std::cout << "width: " << width << " height: " << height << std::endl;
+    //std::cout << (v.x+1.)*width/2. << " " << (v.y+1.)*height/2. << " " << (v.z+1.)*255/2. << std::endl;
     return Vec3i{(v.x+1.)*width/2., (v.y+1.)*height/2., (v.z+1.)*255/2.};
 }
 
@@ -552,8 +550,8 @@ int main(int argc, char **argv)
         // auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
         // TGAColor rnd;
         // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
-        std::cout << vertices[0].x << " " << vertices[0].y << " " << vertices[0].z << std::endl;
-        std::cout << verticesf[0].x << " " << verticesf[0].y << " " << verticesf[0].z << std::endl;
+        //std::cout << vertices[0].x << " " << vertices[0].y << " " << vertices[0].z << std::endl;
+        //std::cout << verticesf[0].x << " " << verticesf[0].y << " " << verticesf[0].z << std::endl;
         const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
         triangleWithFillPerPixelPainters(vertices, image, depthBuffer, randColor);
     }
