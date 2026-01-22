@@ -471,6 +471,27 @@ void projectModel()
     }
 }
 
+void convertDepthBufferToImage(std::vector<std::vector<float>>& depthBuffer, TGAImage &depthBufferImage, const std::string& name)
+{
+    float minDepth = std::numeric_limits<float>::max();
+    float maxDepth = -std::numeric_limits<float>::max();
+
+    for (int i=0; i<depthBuffer.size(); i++)
+        for (int j=0; j<depthBuffer[i].size(); j++)
+        {
+            minDepth = std::min(minDepth, depthBuffer[i][j]);
+            maxDepth = std::max(maxDepth, depthBuffer[i][j]);
+        }
+
+    for (int i=0; i<depthBuffer.size(); i++)
+        for (int j=0; j<depthBuffer[i].size(); j++)
+            depthBufferImage.set(j, i, TGAColor((int)((depthBuffer[i][j])), 1)); // TODO: finish scaling between min and max and [0,255] and the write to bufferw
+
+
+    depthBufferImage.flip_vertically();
+    depthBufferImage.write_tga_file(name.c_str());
+}
+
 int main(int argc, char **argv)
 {
     // DRAW FOUR LINES
@@ -575,7 +596,11 @@ int main(int argc, char **argv)
     int height = 800;
 
     TGAImage image(width, height, TGAImage::RGB);
-    TGAImage depthBuffer(width, height, TGAImage::GRAYSCALE);
+    TGAImage depthBufferImage(width, height, TGAImage::GRAYSCALE);
+    //TGAImage depthBuffer(width, height, TGAImage::GRAYSCALE);
+    std::vector<std::vector<float>> depthBuffer(height, std::vector<float>(width, 0.0));
+
+    //initializeDepthBuffer();
     std::srand(std::time({}));
 
     rotateModel(0, 30, 0);
@@ -603,8 +628,10 @@ int main(int argc, char **argv)
     }
     image.flip_vertically();
     image.write_tga_file("model_projected.tga");
-    depthBuffer.flip_vertically();
-    depthBuffer.write_tga_file("depth_projected.tga");
+
+    convertDepthBufferToImage(depthBuffer, depthBufferImage, "depth_projected.tga");
+    //depthBuffer.flip_vertically();
+    //depthBuffer.write_tga_file("depth_projected.tga");
     return 0;
 
     // TGAImage framebuffer(width, height, TGAImage::RGB);
