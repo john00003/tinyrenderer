@@ -601,6 +601,45 @@ void convertDepthBufferToImage(std::vector<std::vector<float>>& depthBuffer, TGA
     depthBufferImage.write_tga_file(name.c_str());
 }
 
+Vec3f generateVec3fFromHomogenous(Eigen::Vec4f &v)
+{
+    return Vec3f{v(0) / v(3), v(1) / v(3), v(2) / v(3)};
+}
+
+Eigen::Vector4f generateHomogeneousVector(Vec3f &v)
+{
+    return Eigen::Vector4f{v.x, v.y, v.z, 1};
+}
+
+Eigen::Matrix4f generateViewportMatrix()
+{
+    return Eigen::Matrix4f{
+                {width/2, 0, 0, width/2},
+                {0, height/2, 0, height/2},
+                { 0, 0, 1, 0},
+                {0, 0, 0, 1}}
+}
+
+Eigen::Matrix4f generateViewportMatrixWithGrayscaleDepth()
+{
+    return Eigen::Matrix4f{
+                {width/2, 0, 0, width/2},
+                {0, height/2, 0, height/2},
+                { 0, 0, 255/2, 255/2},
+                {0, 0, 0, 1}}
+}
+
+Eigen::Matrix4f generatePerspectiveMatrix(float f)
+{
+    return Eigen::Matrix4f{
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                { 0, 0, 1, 0},
+                {0, 0, -1./f, 1}}
+}
+
+Eigen::Matrix4f generateModelViewMatrix(Vec3f eye, Vec3f center, Vec3f up)
+
 int main(int argc, char **argv)
 {
     // DRAW FOUR LINES
