@@ -159,6 +159,17 @@ std::vector<Vec2i> computeBoundingBox(std::vector<T> &&vertices)
         maxX = std::max(maxX, v.x);
     }
 
+    minY = std::clamp(minY, 0, height-1);
+    maxY = std::clamp(maxY, 0, height-1);
+
+    minX = std::clamp(minX, 0, width-1);
+    maxX = std::clamp(maxX, 0, width-1);
+    // minY = std::max(0, minY);
+    // maxY = std::min(maxY, height-1);
+    //
+    // minX = std::max(0, maxX);
+    // maxX = std::min(width-1, maxX);
+    //
     bbox.emplace_back(minX, minY);
     bbox.emplace_back(maxX, maxY);
 
@@ -166,7 +177,7 @@ std::vector<Vec2i> computeBoundingBox(std::vector<T> &&vertices)
 }
 
 template<typename T>
-std::vector<Vec2i> computeBoundingBox(std::vector<T> &vertices)
+std::vector<Vec2i> computeBoundingBox(std::vector<T> &vertices, int width, int height)
 {
     // takes as input a vector of three vertices sorted by x coordinate
     std::vector<Vec2i> bbox;
@@ -184,6 +195,17 @@ std::vector<Vec2i> computeBoundingBox(std::vector<T> &vertices)
         maxX = std::max(maxX, v.x);
     }
 
+    minY = std::clamp(minY, 0, height-1);
+    maxY = std::clamp(maxY, 0, height-1);
+
+    minX = std::clamp(minX, 0, width-1);
+    maxX = std::clamp(maxX, 0, width-1);
+    // minY = std::max(0, minY);
+    // maxY = std::min(maxY, height-1);
+    //
+    // minX = std::max(0, maxX);
+    // maxX = std::min(width-1, maxX);
+    //
     bbox.emplace_back(minX, minY);
     bbox.emplace_back(maxX, maxY);
 
@@ -268,7 +290,7 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
     //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
     // }
     //sortTriangleVerticesByX(vertices);
-    std::vector<Vec2i> bbox = computeBoundingBox<Vec2i>(vertices);
+    std::vector<Vec2i> bbox = computeBoundingBox<Vec2i>(vertices, width, height);
     //std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
 
     for (int i=bbox[0].y; i<=bbox[1].y; i++)
@@ -283,7 +305,8 @@ void triangleWithFillBoundingBoxMethod(int ax, int ay, int bx, int by, int cx, i
     }
 }
 
-std::expected<TGAColor, std::string> pointInTriangleBarycentricMethodWithColorInterpolation(int px, int py, std::vector<Vec2i> &vertices, std::vector<TGAColor> &colors, double totalArea)
+template <typename T>
+std::expected<TGAColor, std::string> pointInTriangleBarycentricMethodWithColorInterpolation(int px, int py, std::vector<T> &vertices, std::vector<TGAColor> &colors, double totalArea)
 {
     double alpha = signedTriangleArea(px, py, vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y) / totalArea;
     double beta = signedTriangleArea(px, py, vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y) / totalArea;
@@ -319,7 +342,7 @@ void triangleWithLinearInterpolationOverBarycentric(int ax, int ay, int bx, int 
     //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
     // }
     //sortTriangleVerticesByX(vertices);
-    std::vector<Vec2i> bbox = computeBoundingBox(vertices);
+    std::vector<Vec2i> bbox = computeBoundingBox(vertices, width, height);
     //std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
 
     for (int i=bbox[0].y; i<=bbox[1].y; i++)
@@ -358,7 +381,7 @@ std::expected<int, std::string> pointInTriangleBarycentricMethodWithDepthInterpo
     return thisZ;
 }
 
-void triangleWithFillPerPixelPainters(std::vector<Vec3i> &vertices, TGAImage &framebuffer, TGAImage &depthBuffer, TGAColor color)
+void triangleWithFillPerPixelPainters(std::vector<Vec3i> &vertices, TGAImage &framebuffer, std::vector<std::vector<float>> &depthBuffer, TGAColor color)
 {
     // Vec2i point1(ax, ay);
     // Vec2i point2(bx, by);
@@ -378,28 +401,37 @@ void triangleWithFillPerPixelPainters(std::vector<Vec3i> &vertices, TGAImage &fr
     //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
     // }
     //sortTriangleVerticesByX(vertices);
-    std::vector<Vec2i> bbox = computeBoundingBox<Vec3i>(vertices);
+    std::vector<Vec2i> bbox = computeBoundingBox<Vec3i>(vertices, width, height);
     //std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
+    //
+    const TGAColor randColor1 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    const TGAColor randColor2 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    const TGAColor randColor3 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    std::vector<TGAColor> colors = {randColor1, randColor2, randColor3};
 
     for (int i=bbox[0].y; i<=bbox[1].y; i++)
     {
         for (int j=bbox[0].x; j<=bbox[1].x; j++)
         {
+            // std::cout << i << ", " << j << std::endl;
             auto result = pointInTriangleBarycentricMethodWithDepthInterpolation(j,i, vertices, totalArea); // returns depth normalized between [0,255]
+            auto colorResult = pointInTriangleBarycentricMethodWithColorInterpolation(j, i, vertices, colors, totalArea);
+            // std::cout << "safe" << std::endl;
 
             if (result)
             {
                 //std::cout << "result: " << *result << std::endl;
                 //std::cout << "point in triangle at " << i << " " << j << std::endl;
                 //float depth = ()
-                if (*result > depthBuffer.get(j, i).val)
+                if (*result > depthBuffer[i][j])
                 {
                     //std::cout << "drawing overtop" << std::endl;
                     //std::cout << *result << std::endl;
                     //std::cout << "before: " << (int)depthBuffer.get(j, i).val << std::endl;
                     //std::cout << "closer pixel detected" << std::endl;
-                    framebuffer.set(j, i, color);
-                    depthBuffer.set(j, i, TGAColor(*result, 1));
+                    framebuffer.set(j, i, *colorResult);
+                    depthBuffer[i][j] = *result;
+                    // depthBuffer.set(j, i, TGAColor(*result, 1));
                     //std::cout << "after: " << (int)depthBuffer.get(j, i).val << std::endl;
                 }
 
@@ -443,6 +475,8 @@ void rotateModel(float x_theta, float y_theta, float z_theta)
     for (int i=0; i<model->nverts(); i++)
     {
         Vec3f vert = model->vert(i);
+        // if (vert.x < 0 || vert.y < 0 || vert.z < 0)
+        //     std::cout << "one of these under zero before" << std::endl;
         //std::cout << "vertices: " << std::endl;
         //std::cout << vert << std::endl;
         Eigen::Vector3f v(vert.x, vert.y, vert.z);
@@ -450,10 +484,38 @@ void rotateModel(float x_theta, float y_theta, float z_theta)
         vert.x = v[0];
         vert.y = v[1];
         vert.z = v[2];
+        // if (vert.x < 0 || vert.y < 0 || vert.z < 0)
+        //     std::cout << "one of these under zero" << std::endl;
         //std::cout << "new vertices: " << std::endl;
         //std::cout << vert << std::endl;
         //model->vert(i) = vert;
         model->setVert(i, vert);
+        //model->verts_[i] = vert;
+    }
+}
+
+void rotateModel(float x_theta, float y_theta, float z_theta, std::vector<Vec3i> &integerVertices)
+{
+    Eigen::Matrix3f rotMatrix = createRotationMatrix(x_theta, y_theta, z_theta);
+    for (int i=0; i<integerVertices.size(); i++)
+    {
+        Vec3i vert = integerVertices[i];
+        if (vert.x < 0 || vert.y < 0 || vert.z < 0)
+            std::cout << "one of these under zero before" << std::endl;
+        //std::cout << "vertices: " << std::endl;
+        //std::cout << vert << std::endl;
+        Eigen::Vector3f v(vert.x, vert.y, vert.z);
+        v = rotMatrix * v;
+        vert.x = v[0];
+        vert.y = v[1];
+        vert.z = v[2];
+        if (vert.x < 0 || vert.y < 0 || vert.z < 0)
+            std::cout << "one of these under zero" << std::endl;
+        //std::cout << "new vertices: " << std::endl;
+        //std::cout << vert << std::endl;
+        //model->vert(i) = vert;
+        // model->setVert(i, vert);
+        integerVertices[i] = vert;
         //model->verts_[i] = vert;
     }
 }
@@ -465,9 +527,48 @@ void projectModel()
     {
         Vec3f vert = model->vert(i);
         //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
-        vert = vert * (1./(1.-vert.z/c));
+        if (std::abs(vert.x) > 1 || std::abs(vert.y) > 1 || std::abs(vert.z) > 1)
+            std::cout << "greater than one badness BEFORE" << std::endl;
+        if (vert.z/c > 1.){
+            std::cout << "greater than one" << std::endl;
+        }
+
+        // Apply perspective projection: only x and y are divided by (1 - z/c)
+        // z coordinate should not be transformed the same way
+        float perspective_factor = 1./(1.-vert.z/c);
+        vert.x = vert.x * perspective_factor;
+        vert.y = vert.y * perspective_factor;
+        // vert.z stays unchanged to maintain depth ordering in [-1, 1] range
+
+        // if (std::abs(vert.x) > 1 || std::abs(vert.y) > 1 || std::abs(vert.z) > 1) {
+        //     std::cout << "Vertex " << i << " exceeds bounds: x=" << vert.x << " y=" << vert.y << " z=" << vert.z
+        //               << " (factor=" << perspective_factor << ")" << std::endl;
+        // }
         //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
         model->setVert(i, vert);
+    }
+}
+
+void projectModel(std::vector<Vec3i> &integerVertices)
+{
+    for (int i=0; i<integerVertices.size(); i++)
+    {
+        Vec3i vert = integerVertices[i];
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        if (vert.z/c > 1.){
+            std::cout << "greater than one" << std::endl;
+        }
+
+        // Apply perspective projection: only x and y are divided by (1 - z/c)
+        // z coordinate should not be transformed the same way
+        float perspective_factor = 1./(1.-vert.z/c);
+        vert.x = vert.x * perspective_factor;
+        vert.y = vert.y * perspective_factor;
+        // vert.z stays unchanged to maintain depth ordering
+
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        // model->setVert(i, vert);
+        integerVertices[i] = vert;
     }
 }
 
@@ -483,9 +584,17 @@ void convertDepthBufferToImage(std::vector<std::vector<float>>& depthBuffer, TGA
             maxDepth = std::max(maxDepth, depthBuffer[i][j]);
         }
 
+    if (maxDepth == minDepth){
+        std::cout << "WARNING: no depth" << std::endl;
+        return;
+    }
+
+    // maxDepth = 255
+    // minDepth = 1
+    // depthBuffer[i][j] = (depthBuffer[i][j] - minDepth) / (maxDepth-minDepth) * 254 + 1
     for (int i=0; i<depthBuffer.size(); i++)
         for (int j=0; j<depthBuffer[i].size(); j++)
-            depthBufferImage.set(j, i, TGAColor((int)((depthBuffer[i][j])), 1)); // TODO: finish scaling between min and max and [0,255] and the write to bufferw
+            depthBufferImage.set(j, i, TGAColor((int)((depthBuffer[i][j] - minDepth) / (maxDepth - minDepth) * 254 + 1), 1)); // TODO: finish scaling between min and max and [0,255] and the write to bufferw
 
 
     depthBufferImage.flip_vertically();
@@ -583,7 +692,7 @@ int main(int argc, char **argv)
     if (2==argc) {
         model = new Model(argv[1]);
     } else {
-        model = new Model("obj/diablo3_pose.obj");
+        model = new Model("../obj/diablo3_pose.obj");
     }
 
     // model->sortFaces();
@@ -603,12 +712,19 @@ int main(int argc, char **argv)
     //initializeDepthBuffer();
     std::srand(std::time({}));
 
+    // std::vector<Vec3i> integerVertices;
+    // for (int i=0; i<model->nverts(); i++)
+    // {
+    //     integerVertices.push_back(convertVec3fToVec3i(model->vert(i), width, height));
+    // }
+
     rotateModel(0, 30, 0);
     projectModel();
 
     for (int i=0; i<model->nfaces(); i++)
     {
         std::vector<int> face = model->face(i);
+        // std::vector<Vec3i> vertices{integerVertices[face[0]], integerVertices[face[1]], integerVertices[face[2]]};
         std::vector<Vec3f> verticesf{model->vert(face[0]), model->vert(face[1]), model->vert(face[2])};
         std::vector<Vec3i> vertices = transformVertices(verticesf, width, height);
         // std::transform(verticesf.begin(), verticesf.end(),
@@ -624,8 +740,10 @@ int main(int argc, char **argv)
         //std::cout << vertices[0].x << " " << vertices[0].y << " " << vertices[0].z << std::endl;
         //std::cout << verticesf[0].x << " " << verticesf[0].y << " " << verticesf[0].z << std::endl;
         const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+        // std::cout << "in the loop" << std::endl;
         triangleWithFillPerPixelPainters(vertices, image, depthBuffer, randColor);
     }
+    // std::cout << "out the loop" << std::endl;
     image.flip_vertically();
     image.write_tga_file("model_projected.tga");
 
