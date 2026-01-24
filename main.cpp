@@ -601,7 +601,7 @@ void convertDepthBufferToImage(std::vector<std::vector<float>>& depthBuffer, TGA
     depthBufferImage.write_tga_file(name.c_str());
 }
 
-Vec3f generateVec3fFromHomogenous(Eigen::Vec4f &v)
+Vec3f generateVec3fFromHomogenous(Eigen::Vector4f &v)
 {
     return Vec3f{v(0) / v(3), v(1) / v(3), v(2) / v(3)};
 }
@@ -617,7 +617,7 @@ Eigen::Matrix4f generateViewportMatrix()
                 {width/2, 0, 0, width/2},
                 {0, height/2, 0, height/2},
                 { 0, 0, 1, 0},
-                {0, 0, 0, 1}}
+                {0, 0, 0, 1}};
 }
 
 Eigen::Matrix4f generateViewportMatrixWithGrayscaleDepth()
@@ -626,7 +626,7 @@ Eigen::Matrix4f generateViewportMatrixWithGrayscaleDepth()
                 {width/2, 0, 0, width/2},
                 {0, height/2, 0, height/2},
                 { 0, 0, 255/2, 255/2},
-                {0, 0, 0, 1}}
+                {0, 0, 0, 1}};
 }
 
 Eigen::Matrix4f generatePerspectiveMatrix(float f)
@@ -635,10 +635,73 @@ Eigen::Matrix4f generatePerspectiveMatrix(float f)
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 { 0, 0, 1, 0},
-                {0, 0, -1./f, 1}}
+                {0, 0, -1./f, 1}};
 }
 
-Eigen::Matrix4f generateModelViewMatrix(Vec3f eye, Vec3f center, Vec3f up)
+Eigen::Vector3f generateN(Eigen::Vector3f &eye, Eigen::Vector3f &center)
+{
+    Eigen::Vector3f direction = eye - center;
+    return direction / direction.norm();
+}
+
+Eigen::Vector3f generateL(Eigen::Vector3f &n, Eigen::Vector3f &up)
+{
+    Eigen::Vector3f result = up.cross(n);
+    return result / result.norm();
+}
+
+Eigen::Vector3f generateM(Eigen::Vector3f &l, Eigen::Vector3f &n)
+{
+    Eigen::Vector3f result = n.cross(l);
+    return result / result.norm();
+}
+
+
+Eigen::Matrix4f generateModelViewMatrix(Eigen::Vector3f eye, Eigen::Vector3f center, Eigen::Vector3f up)
+{
+    Eigen::Vector3f n = generateN(eye, center);
+    Eigen::Vector3f l = generateL(n, up);
+    Eigen::Vector3f m = generateM(l, n);
+
+
+    Eigen::Matrix4f changeOfBasisInverse{
+                {l(0), l(1), l(2), 0},
+                {m(0), m(1), m(2), 0},
+                {n(0), n(1), n(2), 0},
+                {0, 0, 0, 1}};
+
+    return changeOfBasisInverse * Eigen::Matrix4f{
+                {1, 0, 0, -center(0)},
+                {0, 1, 0, -center(1)},
+                {0, 0, 1, -center(2)},
+                {0, 0, 0, 1}};
+
+
+    
+}
+
+void composeTransformations(std::vector<Vec3i> &integerVertices)
+{
+    for (int i=0; i<integerVertices.size(); i++)
+    {
+        Vec3i vert = integerVertices[i];
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        if (vert.z/c > 1.){
+            std::cout << "greater than one" << std::endl;
+        }
+
+        // Apply perspective projection: only x and y are divided by (1 - z/c)
+        // z coordinate should not be transformed the same way
+        float perspective_factor = 1./(1.-vert.z/c);
+        vert.x = vert.x * perspective_factor;
+        vert.y = vert.y * perspective_factor;
+        // vert.z stays unchanged to maintain depth ordering
+
+        //std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+        // model->setVert(i, vert);
+        integerVertices[i] = vert;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -757,8 +820,8 @@ int main(int argc, char **argv)
     //     integerVertices.push_back(convertVec3fToVec3i(model->vert(i), width, height));
     // }
 
-    rotateModel(0, 30, 0);
-    projectModel();
+    // rotateModel(0, 30, 0);
+    // projectModel();
 
     for (int i=0; i<model->nfaces(); i++)
     {
