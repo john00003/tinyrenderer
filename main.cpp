@@ -819,6 +819,30 @@ int main(int argc, char **argv)
     // {
     //     integerVertices.push_back(convertVec3fToVec3i(model->vert(i), width, height));
     // }
+    Eigen::Matrix4f perspectiveMatrix = generatePerspectiveMatrix(c);
+    Eigen::Matrix4f viewportMatrix = generateViewportMatrix();
+    Eigen::Vector3f eye{-1, 0, 2};
+    Eigen::Vector3f center{0, 0, 0};
+    Eigen::Vector3f up{0, -1, 0};
+    Eigen::Matrix4f modelViewMatrix = generateModelViewMatrix(eye, center, up);
+
+    Eigen::Matrix4f totalMatrix = viewportMatrix * perspectiveMatrix * modelViewMatrix;
+
+    for (int i=0; i<model->nverts(); i++)
+    {
+        Eigen::Vector4f vert{model->vert(i).x, model->vert(i).y, model->vert(i).z, 1};
+        std::cout << "vert before: " << vert << std::endl;
+        vert = totalMatrix * vert;
+        std::cout << "vert after: " << vert << std::endl;
+        model->setVert(i, generateVec3fFromHomogenous(vert));
+        // model->vert(i) = generateVec3fFromHomogenous(vert);
+        // std::cout << "vert totally after: " << model->vert(i).x << model->vert(i).y << model->vert(i).z << std::endl;
+
+        // model->vert(i).x = vert(0)/vert(3);
+        // model->vert(i).y = vert(1)/vert(3);
+        // model->vert(i).z = vert(2)/vert(3);
+
+    }
 
     // rotateModel(0, 30, 0);
     // projectModel();
@@ -847,9 +871,9 @@ int main(int argc, char **argv)
     }
     // std::cout << "out the loop" << std::endl;
     image.flip_vertically();
-    image.write_tga_file("model_projected.tga");
+    image.write_tga_file("model_matrices.tga");
 
-    convertDepthBufferToImage(depthBuffer, depthBufferImage, "depth_projected.tga");
+    // convertDepthBufferToImage(depthBuffer, depthBufferImage, "depth_projected.tga");
     //depthBuffer.flip_vertically();
     //depthBuffer.write_tga_file("depth_projected.tga");
     return 0;
