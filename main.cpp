@@ -10,11 +10,16 @@
 #include "geometry.h"
 //#include "mymath.h"
 //#include <Eigen/Dense>
+#include "our_gl.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
 Model *model = NULL;
 constexpr double c = 3.; // camera parameter
+constexpr double e = 64.; //specular exponent
+
+extern Eigen::Matrix4f ModelView, Viewport, Perspective; // "OpenGL" state matrices
+extern std::vector<std::vector<float>> zbuffer;               // depth buffer
 
 // const TGAColor white = TGAColor(255, 255, 255, 255);
 // const TGAColor red = TGAColor(255, 0, 0, 255);
@@ -441,74 +446,6 @@ std::expected<T, std::string> pointInTriangleBarycentricMethodWithDepthInterpola
     return thisZ;
 }
 
-template <typename T>
-void triangleWithFillPerPixelPainters(std::vector<Vec3<T>> &vertices, TGAImage &framebuffer, std::vector<std::vector<float>> &depthBuffer, TGAColor color)
-{
-    // Vec2i point1(ax, ay);
-    // Vec2i point2(bx, by);
-    // Vec2i point3(cx, cy);
-    // std::vector<Vec2i> vertices{point1, point2, point3};
-
-    std::cout << "yay here" << std::endl;
-    std::cout << vertices[0] << " " << vertices[1] << " " << vertices[2] << std::endl;
-    std::vector<Vec3i> verticesProjected;
-    std::transform(vertices.begin(), vertices.end(),
-               std::back_inserter(verticesProjected),
-               [](Vec3f v) {
-                   return Vec3i{static_cast<int>(v.x), static_cast<int>(v.y), 1};
-               });
-    std::cout << verticesProjected[0] << " " << verticesProjected[1] << " " << verticesProjected[2] << std::endl;
-    double totalArea = signedTriangleArea(verticesProjected[0].x, verticesProjected[0].y, verticesProjected[1].x, verticesProjected[1].y, verticesProjected[2].x, verticesProjected[2].y);
-    //std::cout << ax << " " << ay << " " << bx << " " << by << " " << cx << " " << cy << std::endl;
-    // std::cout << "yay" << std::endl;
-    if (totalArea < 1){
-        // std::cout << "Total area is less than 1, skipping triangle" << std::endl;
-        //std::cout << "Total area:  " << totalArea << std::endl;
-        return;
-    }
-    // else{
-    //     std::cout << "Total area is " << totalArea << ", drawing triangle" << std::endl;
-    //     std::cout << "Colors: " << (int) color.raw[0] << ", " << (int) color.raw[1] << ", " << (int) color.raw[2] << ", " << (int) color.raw[3] << std::endl;
-    // }
-    //sortTriangleVerticesByX(vertices);
-    std::vector<Vec2i> bbox = computeBoundingBox<int>(verticesProjected, width, height);
-    std::cout << "bbox min x: " << bbox[0].x << " " << "bbox min y: " << bbox[0].y << " " << "bbox max x: " << bbox[1].x << " " << "bbox max y: " << bbox[1].y << std::endl;
-    //
-    const TGAColor randColor1 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    const TGAColor randColor2 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    const TGAColor randColor3 = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-    std::vector<TGAColor> colors = {randColor1, randColor2, randColor3};
-
-    for (int i=bbox[0].y; i<=bbox[1].y; i++)
-    {
-        for (int j=bbox[0].x; j<=bbox[1].x; j++)
-        {
-            // std::cout << i << ", " << j << std::endl;
-            auto result = pointInTriangleBarycentricMethodWithDepthInterpolation(j,i, verticesProjected, vertices, totalArea); // returns depth at point (i,j), averaged between z of the three points
-            auto colorResult = pointInTriangleBarycentricMethodWithColorInterpolation(j, i, verticesProjected, colors, totalArea);
-            // std::cout << "safe" << std::endl;
-
-            if (result)
-            {
-                // std::cout << "result: " << *result << std::endl;
-                //std::cout << "point in triangle at " << i << " " << j << std::endl;
-                //float depth = ()
-                if (*result > depthBuffer[i][j])
-                {
-                    //std::cout << "drawing overtop" << std::endl;
-                    //std::cout << *result << std::endl;
-                    //std::cout << "before: " << (int)depthBuffer.get(j, i).val << std::endl;
-                    //std::cout << "closer pixel detected" << std::endl;
-                    framebuffer.set(j, i, *colorResult);
-                    depthBuffer[i][j] = *result;
-                    // depthBuffer.set(j, i, TGAColor(*result, 1));
-                    //std::cout << "after: " << (int)depthBuffer.get(j, i).val << std::endl;
-                }
-
-            }
-        }
-    }
-}
 
 std::pair<int, int> convertVec3fToXY(Vec3f &&v, int width, int height)
 {
@@ -681,79 +618,6 @@ Eigen::Vector4f generateHomogeneousVector(Vec3f &v)
     return Eigen::Vector4f{v.x, v.y, v.z, 1};
 }
 
-Eigen::Matrix4f generateViewportMatrix()
-{
-    return Eigen::Matrix4f{
-                {width*7/16, 0, 0, width/16 + width*7/16},
-                {0, height*7/16, 0, height/16 + height*7/16},
-                { 0, 0, 1, 0},
-                {0, 0, 0, 1}};
-    return Eigen::Matrix4f{
-                {width/2, 0, 0, width/2},
-                {0, height/2, 0, height/2},
-                { 0, 0, 1, 0},
-                {0, 0, 0, 1}};
-}
-
-Eigen::Matrix4f generateViewportMatrixWithGrayscaleDepth()
-{
-    return Eigen::Matrix4f{
-                {width/2, 0, 0, width/2},
-                {0, height/2, 0, height/2},
-                { 0, 0, 255/2, 255/2},
-                {0, 0, 0, 1}};
-}
-
-Eigen::Matrix4f generatePerspectiveMatrix(float f)
-{
-    return Eigen::Matrix4f{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                { 0, 0, 1, 0},
-                {0, 0, -1./f, 1}};
-}
-
-Eigen::Vector3f generateN(Eigen::Vector3f &eye, Eigen::Vector3f &center)
-{
-    Eigen::Vector3f direction = eye - center;
-    return direction / direction.norm();
-}
-
-Eigen::Vector3f generateL(Eigen::Vector3f &n, Eigen::Vector3f &up)
-{
-    Eigen::Vector3f result = up.cross(n);
-    return result / result.norm();
-}
-
-Eigen::Vector3f generateM(Eigen::Vector3f &l, Eigen::Vector3f &n)
-{
-    Eigen::Vector3f result = n.cross(l);
-    return result / result.norm();
-}
-
-
-Eigen::Matrix4f generateModelViewMatrix(Eigen::Vector3f eye, Eigen::Vector3f center, Eigen::Vector3f up)
-{
-    Eigen::Vector3f n = generateN(eye, center);
-    Eigen::Vector3f l = generateL(n, up);
-    Eigen::Vector3f m = generateM(l, n);
-
-
-    Eigen::Matrix4f changeOfBasisInverse{
-                {l(0), l(1), l(2), 0},
-                {m(0), m(1), m(2), 0},
-                {n(0), n(1), n(2), 0},
-                {0, 0, 0, 1}};
-
-    return changeOfBasisInverse * Eigen::Matrix4f{
-                {1, 0, 0, -center(0)},
-                {0, 1, 0, -center(1)},
-                {0, 0, 1, -center(2)},
-                {0, 0, 0, 1}};
-
-
-    
-}
 
 void composeTransformations(std::vector<Vec3i> &integerVertices)
 {
@@ -777,6 +641,71 @@ void composeTransformations(std::vector<Vec3i> &integerVertices)
         integerVertices[i] = vert;
     }
 }
+
+struct RandomShader : IShader {
+    TGAColor color = {};
+    Eigen::Vector3f tri[3];  // triangle in eye coordinates
+    Eigen::Vector3f l;
+
+    RandomShader(const Eigen::Vector3f light){
+        // l = (ModelView * Eigen::Vector4f(light(0), light(1), light(2), 0.)).head<3>;
+        // l = l / l.norm();
+    }
+
+    virtual Eigen::Vector4f vertex(const int face, const int vert) {
+        Vec3f vtemp = model->vert(face, vert);
+        Eigen::Vector3f v(vtemp.x, vtemp.y, vtemp.z); // current vertex in object coordinates
+        // Eigen::Vector3f v = model.vert(face, vert);                          
+        Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
+        tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
+        return Perspective * gl_Position;                         // in clip coordinates
+    }
+
+    virtual std::pair<bool,TGAColor> fragmentOld(const Eigen::Vector3f bar) const {
+        return {false, color};                                    // do not discard the pixel
+    }
+
+    // computes grayscale intensity as combination of ambient, diffuse, and specular terms
+    // takes as input the current position on the face being rasterized, the camera position, and the position of the sun/lighting in the scene
+    virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& position, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
+        float ambientMultiplier = 0.3;
+        float diffMultiplier = 0.4;
+        float specMultiplier = 0.9;
+
+        float ambient = ambientMultiplier;
+
+        // compute normal to the surface
+        Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]) / ((tri[1] - tri[0]).cross(tri[2] - tri[0])).norm();
+
+        // compute unit vector facing light
+        Eigen::Vector3f unitLight = light - position;
+        unitLight = unitLight / unitLight.norm();
+        float cosa = normal.dot(unitLight);
+        float diffuse = std::max((float)0., cosa)*diffMultiplier;
+
+        // compute unit vector of reflected light across normal
+        Eigen::Vector3f reflection = 2 * normal * cosa - unitLight;
+
+        // compute unit vector of direction to camera
+        Eigen::Vector3f unitCamera = camera - position;
+        unitCamera = unitCamera / unitCamera.norm();
+        float cosb = reflection.dot(unitCamera);
+
+        // compute specular term
+        float specular = (std::pow(std::max((float)0., cosb), e))*specMultiplier;
+
+        float intensityMultiplier = ambient + diffuse + specular;
+        intensityMultiplier = std::min(intensityMultiplier, (float)1.);
+        float intensity = 255 * intensityMultiplier;
+        // std::cout << "terms: " << ambient << " " << diffuse << " " << specular << std::endl;
+        // std::cout << intensity << std::endl;
+        TGAColor fragmentColor = { static_cast<unsigned char>(intensity),
+                                    static_cast<unsigned char>(intensity),
+                                    static_cast<unsigned char>(intensity),
+                                    255 };
+        return {false, fragmentColor};                                    // do not discard the pixel
+    }
+};
 
 int main(int argc, char **argv)
 {
@@ -866,11 +795,11 @@ int main(int argc, char **argv)
 
 
     // DRAW FILLED TRAINGLES ON MODEL
-    if (2==argc) {
-        model = new Model(argv[1]);
-    } else {
-        model = new Model("../obj/diablo3_pose.obj");
-    }
+    // if (2==argc) {
+    //     model = new Model(argv[1]);
+    // } else {
+    //     model = new Model("../obj/diablo3_pose.obj");
+    // }
 
     // model->sortFaces();
     // for (int i=0; i<model->nfaces(); i++)
@@ -878,13 +807,13 @@ int main(int argc, char **argv)
     //     std::cout << "min Z coord: " << std::min(model->vert(model->face(i)[0]).z, std::min(model->vert(model->face(i)[1]).z, model->vert(model->face(i)[2]).z));
     // }
 
-    int width = 800;
-    int height = 800;
+    // int width = 800;
+    // int height = 800;
 
-    TGAImage image(width, height, TGAImage::RGB);
-    TGAImage depthBufferImage(width, height, TGAImage::GRAYSCALE);
+    // TGAImage image(width, height, TGAImage::RGB);
+    // TGAImage depthBufferImage(width, height, TGAImage::GRAYSCALE);
     //TGAImage depthBuffer(width, height, TGAImage::GRAYSCALE);
-    std::vector<std::vector<float>> depthBuffer(height, std::vector<float>(width, std::numeric_limits<float>::lowest()));
+    // std::vector<std::vector<float>> depthBuffer(height, std::vector<float>(width, std::numeric_limits<float>::lowest()));
 
     //initializeDepthBuffer();
     std::srand(std::time({}));
@@ -894,77 +823,77 @@ int main(int argc, char **argv)
     // {
     //     integerVertices.push_back(convertVec3fToVec3i(model->vert(i), width, height));
     // }
-    Eigen::Vector3f eye{1, 0, 2};
-    Eigen::Vector3f center{0, 0, 0};
-    Eigen::Vector3f up{0, 1, 0};
-    Eigen::Matrix4f perspectiveMatrix = generatePerspectiveMatrix((eye-center).norm());
-    Eigen::Matrix4f viewportMatrix = generateViewportMatrix();
-    Eigen::Matrix4f modelViewMatrix = generateModelViewMatrix(eye, center, up);
+    // Eigen::Vector3f eye{-1, 0, -2};
+    // Eigen::Vector3f center{0, 0, 0};
+    // Eigen::Vector3f up{0, 1, 0};
+    // Eigen::Matrix4f perspectiveMatrix = generatePerspectiveMatrix((eye-center).norm());
+    // Eigen::Matrix4f viewportMatrix = generateViewportMatrix();
+    // Eigen::Matrix4f modelViewMatrix = generateModelViewMatrix(eye, center, up);
 
     // Eigen::Matrix4f totalMatrix = viewportMatrix * perspectiveMatrix * modelViewMatrix;
-    Eigen::Matrix4f preMatrix =  perspectiveMatrix * modelViewMatrix;
-
-    for (int i=0; i<model->nverts(); i++)
-    {
-        Eigen::Vector4f vert{model->vert(i).x, model->vert(i).y, model->vert(i).z, 1};
-        std::cout << "vert before: " << vert << std::endl;
-        vert = preMatrix * vert;
-        std::cout << "vert after first matrix: " << vert << std::endl;
-        vert = vert/vert(3);
-        std::cout << "vert after scaling: " << vert << std::endl;
-        vert = viewportMatrix * vert;
-        std::cout << "vert after: " << vert << std::endl;
-        vert(3) = 1;
-
-        model->setVert(i, generateVec3fFromHomogenous(vert));
-        // Eigen::Vector4f vert{model->vert(i).x, model->vert(i).y, model->vert(i).z, 1};
-        // std::cout << "vert before: " << vert << std::endl;
-        // vert = totalMatrix * vert;
-        // std::cout << "vert after: " << vert << std::endl;
-        // model->setVert(i, generateVec3fFromHomogenous(vert));
-        // model->vert(i) = generateVec3fFromHomogenous(vert);
-        // std::cout << "vert totally after: " << model->vert(i).x << model->vert(i).y << model->vert(i).z << std::endl;
-
-        // model->vert(i).x = vert(0)/vert(3);
-        // model->vert(i).y = vert(1)/vert(3);
-        // model->vert(i).z = vert(2)/vert(3);
-
-    }
+    // Eigen::Matrix4f preMatrix =  perspectiveMatrix * modelViewMatrix;
+    //
+    // for (int i=0; i<model->nverts(); i++)
+    // {
+    //     Eigen::Vector4f vert{model->vert(i).x, model->vert(i).y, model->vert(i).z, 1};
+    //     std::cout << "vert before: " << vert << std::endl;
+    //     vert = preMatrix * vert;
+    //     std::cout << "vert after first matrix: " << vert << std::endl;
+    //     vert = vert/vert(3);
+    //     std::cout << "vert after scaling: " << vert << std::endl;
+    //     vert = viewportMatrix * vert;
+    //     std::cout << "vert after: " << vert << std::endl;
+    //     vert(3) = 1;
+    //
+    //     model->setVert(i, generateVec3fFromHomogenous(vert));
+    //     // Eigen::Vector4f vert{model->vert(i).x, model->vert(i).y, model->vert(i).z, 1};
+    //     // std::cout << "vert before: " << vert << std::endl;
+    //     // vert = totalMatrix * vert;
+    //     // std::cout << "vert after: " << vert << std::endl;
+    //     // model->setVert(i, generateVec3fFromHomogenous(vert));
+    //     // model->vert(i) = generateVec3fFromHomogenous(vert);
+    //     // std::cout << "vert totally after: " << model->vert(i).x << model->vert(i).y << model->vert(i).z << std::endl;
+    //
+    //     // model->vert(i).x = vert(0)/vert(3);
+    //     // model->vert(i).y = vert(1)/vert(3);
+    //     // model->vert(i).z = vert(2)/vert(3);
+    //
+    // }
 
     // rotateModel(0, 30, 0);
     // projectModel();
 
-    for (int i=0; i<model->nfaces(); i++)
-    {
-        std::vector<int> face = model->face(i);
-        // std::vector<Vec3i> vertices{integerVertices[face[0]], integerVertices[face[1]], integerVertices[face[2]]};
-        std::vector<Vec3f> verticesf{model->vert(face[0]), model->vert(face[1]), model->vert(face[2])};
-        std::vector<Vec3i> vertices;
-        // std::transform(verticesf.begin(), verticesf.end(),
-        //            std::back_inserter(vertices),
-        //            [](Vec3f v) {
-        //                return Vec3i{static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)};
-        //            });
-         // std::cout << "vertices after transform: " << vertices[0] << " " << vertices[1] << " " << vertices[2] << std::endl;
-        // auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
-        // auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
-        // auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
-        // TGAColor rnd;
-        // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
-        //std::cout << vertices[0].x << " " << vertices[0].y << " " << vertices[0].z << std::endl;
-        //std::cout << verticesf[0].x << " " << verticesf[0].y << " " << verticesf[0].z << std::endl;
-        const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
-        std::cout << "in the loop" << std::endl;
-        triangleWithFillPerPixelPainters(verticesf, image, depthBuffer, randColor);
-    }
-    // std::cout << "out the loop" << std::endl;
-    image.flip_vertically();
-    image.write_tga_file("model_matrices.tga");
+    // for (int i=0; i<model->nfaces(); i++)
+    // {
+    //     std::vector<int> face = model->face(i);
+    //     // std::vector<Vec3i> vertices{integerVertices[face[0]], integerVertices[face[1]], integerVertices[face[2]]};
+    //     std::vector<Vec3f> verticesf{model->vert(face[0]), model->vert(face[1]), model->vert(face[2])};
+    //     std::vector<Vec3i> vertices;
+    //     // std::transform(verticesf.begin(), verticesf.end(),
+    //     //            std::back_inserter(vertices),
+    //     //            [](Vec3f v) {
+    //     //                return Vec3i{static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)};
+    //     //            });
+    //      // std::cout << "vertices after transform: " << vertices[0] << " " << vertices[1] << " " << vertices[2] << std::endl;
+    //     // auto [ax, ay] = convertVec3fToXY(model->vert(face[0]), width, height);
+    //     // auto [bx, by] = convertVec3fToXY(model->vert(face[1]), width, height);
+    //     // auto [cx, cy] = convertVec3fToXY(model->vert(face[2]), width, height);
+    //     // TGAColor rnd;
+    //     // for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
+    //     //std::cout << vertices[0].x << " " << vertices[0].y << " " << vertices[0].z << std::endl;
+    //     //std::cout << verticesf[0].x << " " << verticesf[0].y << " " << verticesf[0].z << std::endl;
+    //     const TGAColor randColor = {std::rand()%255, std::rand()%255, std::rand()%255, std::rand()%255};
+    //     std::cout << "in the loop" << std::endl;
+    //     triangleWithFillPerPixelPainters(verticesf, image, depthBuffer, randColor);
+    // }
+    // // std::cout << "out the loop" << std::endl;
+    // image.flip_vertically();
+    // image.write_tga_file("model_matrices.tga");
 
     // convertDepthBufferToImage(depthBuffer, depthBufferImage, "depth_projected.tga");
     //depthBuffer.flip_vertically();
     //depthBuffer.write_tga_file("depth_projected.tga");
-    return 0;
+    // return 0;
 
     // TGAImage framebuffer(width, height, TGAImage::RGB);
     // std::srand(std::time({}));
@@ -977,6 +906,39 @@ int main(int argc, char **argv)
     // triangleWithLinearInterpolationOverBarycentric(115, 83, 80,  90, 85, 120, framebuffer, colors);
     // framebuffer.write_tga_file("framebuffer.tga");
     // return 0;
+
+    // Load the model
+    if (2==argc) {
+        model = new Model(argv[1]);
+    } else {
+        model = new Model("../obj/diablo3_pose.obj");
+    }
+
+    const int width = 800;
+    const int height = 800;
+
+    const Eigen::Vector3f    eye(-1, 0, 2); // camera position
+    const Eigen::Vector3f center( 0, 0, 0); // camera direction
+    const Eigen::Vector3f     up( 0, 1, 0); // camera up vector
+    const Eigen::Vector3f  light( 1, 0, 2); // position of sun/lighting
+
+    generateModelViewMatrix(eye, center, up);                                   // build the ModelView   matrix
+    generatePerspectiveMatrix((eye-center).norm());                        // build the Perspective matrix
+    generateViewportMatrix(width/16, height/16, width*7/8, height*7/8); // build the Viewport    matrix
+    generateZBuffer(width, height);
+    TGAImage framebuffer(width, height, TGAImage::RGB);
+    RandomShader shader(light);
+    for (int f=0; f<model->nfaces(); f++) {      // iterate through all facets
+        // shader.color = { std::rand()%255, std::rand()%255, std::rand()%255, 255 };
+        Triangle clip = { shader.vertex(f, 0),  // assemble the primitive
+                          shader.vertex(f, 1),
+                          shader.vertex(f, 2) };
+        rasterize(clip, shader, framebuffer, eye, light);   // rasterize the primitive
+    }
+
+    framebuffer.flip_vertically();
+    framebuffer.write_tga_file("framebuffer_shaded.tga");
+    return 0;
 }
 
 

@@ -145,7 +145,7 @@ void generateModelViewMatrix(Eigen::Vector3f eye, Eigen::Vector3f center, Eigen:
 //     }
 // }
 
-void rasterize(const Triangle &clip, const IShader &shader, TGAImage &framebuffer) {
+void rasterize(const Triangle &clip, const IShader &shader, TGAImage &framebuffer, const Eigen::Vector3f &camera, const Eigen::Vector3f &light) {
     Eigen::Vector4f ndc[3]    = { clip[0]/clip[0].w(), clip[1]/clip[1].w(), clip[2]/clip[2].w() };                // normalized device coordinates
     Eigen::Vector2f screen[3] = { (Viewport*ndc[0]).head<2>(), (Viewport*ndc[1]).head<2>(), (Viewport*ndc[2]).head<2>() }; // screen coordinates
 
@@ -164,7 +164,7 @@ void rasterize(const Triangle &clip, const IShader &shader, TGAImage &framebuffe
             if (bc(0)<0 || bc(1)<0 || bc(2)<0) continue;                                                    // negative barycentric coordinate => the pixel is outside the triangle
             float z = bc.dot(Eigen::Vector3f{ ndc[0].z(), ndc[1].z(), ndc[2].z() });  // linear interpolation of the depth
             if (z <= zbuffer[y][x]) continue;   // discard fragments that are too deep w.r.t the z-buffer
-            auto [discard, color] = shader.fragment(bc);
+            auto [discard, color] = shader.fragment(bc, camera, light);
             if (discard) continue;                                 // fragment shader can discard current fragment
             zbuffer[y][x] = z;                  // update the z-buffer
             framebuffer.set(x, y, color);                          // update the framebuffer
