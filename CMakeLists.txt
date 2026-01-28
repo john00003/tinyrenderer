@@ -14,6 +14,9 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(eigen)
 
+add_library(our_gl STATIC our_gl.cpp
+        our_gl.h)
+
 add_executable(mytinyrenderer main.cpp
         tgaimage.cpp
         tgaimage.h
@@ -22,4 +25,6 @@ add_executable(mytinyrenderer main.cpp
         geometry.h)
         #main2.cpp)
 
+target_link_libraries(our_gl PRIVATE Eigen3::Eigen)
 target_link_libraries(mytinyrenderer PRIVATE Eigen3::Eigen)
+target_link_libraries(mytinyrenderer PRIVATE our_gl)

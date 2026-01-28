@@ -81,6 +81,10 @@ Vec3f Model::vert(int i) {
     return verts_[i];
 }
 
+Vec3f Model::vert(int face, int i) {
+    return verts_[faces_[face][i]];
+}
+
 void Model::setVert(int i, Vec3f v)
 {
     verts_[i] = v;
