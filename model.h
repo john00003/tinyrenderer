@@ -8,15 +8,20 @@
 class Model {
 private:
     std::vector<Vec3f> verts_;
+    std::vector<Vec3f> normals_;
     std::vector<std::vector<int> > faces_;
 public:
     Model(const char *filename);
     ~Model();
     int nverts();
     int nfaces();
+    int nnormals();
     Vec3f vert(int i);
     Vec3f vert(int face, int i);
+    Vec3f normal(int i);
+    Vec3f normal(int face, int i);
     void setVert(int i, Vec3f v);
+    void setNormal(int i, Vec3f n);
     std::vector<int> face(int idx);
     void sortFaces();
 };

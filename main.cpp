@@ -645,6 +645,7 @@ void composeTransformations(std::vector<Vec3i> &integerVertices)
 struct RandomShader : IShader {
     TGAColor color = {};
     Eigen::Vector3f tri[3];  // triangle in eye coordinates
+    Eigen::Vector3f normals[3];  // triangle in eye coordinates
     Eigen::Vector3f l;
 
     RandomShader(const Eigen::Vector3f light){
@@ -653,9 +654,11 @@ struct RandomShader : IShader {
 
     virtual Eigen::Vector4f vertex(const int face, const int vert) {
         Vec3f vtemp = model->vert(face, vert);
+        Vec3f ntemp = model->normal(face, vert);
         Eigen::Vector3f v(vtemp.x, vtemp.y, vtemp.z); // current vertex in object coordinates
         // Eigen::Vector3f v = model.vert(face, vert);                          
         Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
+        normals[vert] = (ModelView.inverse().transpose()*Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3);
         // tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
         tri[vert] = gl_Position.head(3);                            // in eye coordinates
         return Perspective * gl_Position;                         // in clip coordinates
@@ -667,7 +670,8 @@ struct RandomShader : IShader {
 
     // computes grayscale intensity as combination of ambient, diffuse, and specular terms
     // takes as input the current position on the face being rasterized, the camera position, and the position of the sun/lighting in the scene
-    virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& position, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
+    // TODO: when we were trying to compute difference between position and camera, light, etc., we were accidentally passing barycentric coordinates instead of position
+    virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& barycentric, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
         float ambientMultiplier = 0.3;
         float diffMultiplier = 0.4;
         float specMultiplier = 0.9;
@@ -675,7 +679,8 @@ struct RandomShader : IShader {
         float ambient = ambientMultiplier;
 
         // compute normal to the surface
-        Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized();
+        // Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized();
+        Eigen::Vector3f normal = (barycentric[0] * normals[0] + barycentric[1] * normals[1] + barycentric[2] * normals[2]).normalized();
 
         // compute angle between normal and unit vector facing light source
         float cosa = normal.dot(l);
@@ -700,6 +705,14 @@ struct RandomShader : IShader {
         return {false, fragmentColor};                                    // do not discard the pixel
     }
 };
+
+// void transformNormals(Eigen::Matrix4f matrix){
+//     for (int i=0; i<model.nnormals()){
+//         Eigen::Vector4f newNormal = matrix*Eigen::Vector4f(model.normal(i)[0], model.normal(i)[1], model.normal(i)[2], 0);
+//         model.setNormal(i, Vec3f(newNormal(0), newNormal(1), newNormal(2)));
+//     }
+// }
+
 
 int main(int argc, char **argv)
 {
@@ -920,6 +933,10 @@ int main(int argc, char **argv)
     generatePerspectiveMatrix((eye-center).norm());                        // build the Perspective matrix
     generateViewportMatrix(width/16, height/16, width*7/8, height*7/8); // build the Viewport    matrix
     generateZBuffer(width, height);
+
+    // transformNormals();
+    // model.transformNormals(ModelView.inverse().transpose());
+
     TGAImage framebuffer(width, height, TGAImage::RGB);
     RandomShader shader(light);
     for (int f=0; f<model->nfaces(); f++) {      // iterate through all facets
@@ -931,7 +948,7 @@ int main(int argc, char **argv)
     }
 
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_shaded.tga");
+    framebuffer.write_tga_file("framebuffer_shaded_smooth.tga");
     return 0;
 }
 

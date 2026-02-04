@@ -58,6 +58,12 @@ Model::Model(const char *filename) : verts_(), faces_() {
 
             faces_.push_back(f);
             check = false;
+        } else if (!line.compare(0, 3, "vn ")) {
+            iss >> trash;
+            iss >> trash;
+            Vec3f v;
+            for (int i=0;i<3;i++) iss >> v.raw[i];
+            normals_.push_back(v);
         }
     }
 }
@@ -73,6 +79,10 @@ int Model::nfaces() {
     return (int)faces_.size();
 }
 
+int Model::nnormals() {
+    return (int)normals_.size();
+}
+
 std::vector<int> Model::face(int idx) {
     return faces_[idx];
 }
@@ -85,9 +95,22 @@ Vec3f Model::vert(int face, int i) {
     return verts_[faces_[face][i]];
 }
 
+Vec3f Model::normal(int i) {
+    return normals_[i];
+}
+
+Vec3f Model::normal(int face, int i) {
+    return normals_[faces_[face][i]];
+}
+
 void Model::setVert(int i, Vec3f v)
 {
     verts_[i] = v;
+}
+
+void Model::setNormal(int i, Vec3f v)
+{
+    normals_[i] = v;
 }
 
 void Model::sortFaces()
