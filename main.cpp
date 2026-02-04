@@ -16,7 +16,7 @@
 
 Model *model = NULL;
 constexpr double c = 3.; // camera parameter
-constexpr double e = 64.; //specular exponent
+constexpr double e = 35.; //specular exponent
 
 extern Eigen::Matrix4f ModelView, Viewport, Perspective; // "OpenGL" state matrices
 extern std::vector<std::vector<float>> zbuffer;               // depth buffer
@@ -648,8 +648,7 @@ struct RandomShader : IShader {
     Eigen::Vector3f l;
 
     RandomShader(const Eigen::Vector3f light){
-        // l = (ModelView * Eigen::Vector4f(light(0), light(1), light(2), 0.)).head<3>;
-        // l = l / l.norm();
+        l = ((ModelView * Eigen::Vector4f(light(0), light(1), light(2), 0.)).head(3)).normalized();
     }
 
     virtual Eigen::Vector4f vertex(const int face, const int vert) {
@@ -657,7 +656,8 @@ struct RandomShader : IShader {
         Eigen::Vector3f v(vtemp.x, vtemp.y, vtemp.z); // current vertex in object coordinates
         // Eigen::Vector3f v = model.vert(face, vert);                          
         Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
-        tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
+        // tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
+        tri[vert] = gl_Position.head(3);                            // in eye coordinates
         return Perspective * gl_Position;                         // in clip coordinates
     }
 
@@ -675,21 +675,17 @@ struct RandomShader : IShader {
         float ambient = ambientMultiplier;
 
         // compute normal to the surface
-        Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]) / ((tri[1] - tri[0]).cross(tri[2] - tri[0])).norm();
+        Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized();
 
-        // compute unit vector facing light
-        Eigen::Vector3f unitLight = light - position;
-        unitLight = unitLight / unitLight.norm();
-        float cosa = normal.dot(unitLight);
+        // compute angle between normal and unit vector facing light source
+        float cosa = normal.dot(l);
         float diffuse = std::max((float)0., cosa)*diffMultiplier;
 
         // compute unit vector of reflected light across normal
-        Eigen::Vector3f reflection = 2 * normal * cosa - unitLight;
+        Eigen::Vector3f reflection = (2 * normal * cosa - l).normalized();
 
         // compute unit vector of direction to camera
-        Eigen::Vector3f unitCamera = camera - position;
-        unitCamera = unitCamera / unitCamera.norm();
-        float cosb = reflection.dot(unitCamera);
+        float cosb = reflection[2];
 
         // compute specular term
         float specular = (std::pow(std::max((float)0., cosb), e))*specMultiplier;
@@ -697,8 +693,6 @@ struct RandomShader : IShader {
         float intensityMultiplier = ambient + diffuse + specular;
         intensityMultiplier = std::min(intensityMultiplier, (float)1.);
         float intensity = 255 * intensityMultiplier;
-        // std::cout << "terms: " << ambient << " " << diffuse << " " << specular << std::endl;
-        // std::cout << intensity << std::endl;
         TGAColor fragmentColor = { static_cast<unsigned char>(intensity),
                                     static_cast<unsigned char>(intensity),
                                     static_cast<unsigned char>(intensity),
@@ -911,7 +905,7 @@ int main(int argc, char **argv)
     if (2==argc) {
         model = new Model(argv[1]);
     } else {
-        model = new Model("../obj/diablo3_pose.obj");
+        model = new Model("../obj/face.obj");
     }
 
     const int width = 800;
@@ -920,7 +914,7 @@ int main(int argc, char **argv)
     const Eigen::Vector3f    eye(-1, 0, 2); // camera position
     const Eigen::Vector3f center( 0, 0, 0); // camera direction
     const Eigen::Vector3f     up( 0, 1, 0); // camera up vector
-    const Eigen::Vector3f  light( 1, 0, 2); // position of sun/lighting
+    const Eigen::Vector3f  light( 1, 1, 1); // position of sun/lighting
 
     generateModelViewMatrix(eye, center, up);                                   // build the ModelView   matrix
     generatePerspectiveMatrix((eye-center).norm());                        // build the Perspective matrix
