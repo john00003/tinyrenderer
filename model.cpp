@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-Model::Model(const char *filename) : verts_(), faces_() {
+Model::Model(const std::string filename) : verts_() {
     std::ifstream in;
     in.open (filename, std::ifstream::in);
     if (in.fail()) return;
@@ -26,46 +26,40 @@ Model::Model(const char *filename) : verts_(), faces_() {
             for (int i=0;i<3;i++) iss >> v.raw[i];
             verts_.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
-            std::vector<int> f;
-            int itrash, idx;
-            // we must handle two types of input: the format "f 1193/1240/1193 1180/1227/1180 1179/1226/1179"
-            // and the format "f 16504 16660 16659"
-            iss >> trash;
-            iss >> idx;     // read first index
-            if (check)
-                std::cout << idx - 1 << std::endl;
-            f.push_back(idx-1); // in wavefront obj all indices start at 1, not zero
-            int c = iss.peek();
-            if (c == 47) // if c == "/"
-            {
-                iss >> trash >> itrash >> trash >> itrash;
-                while (iss >> idx >> trash >> itrash >> trash >> itrash) {
-                    idx--; // in wavefront obj all indices start at 1, not zero
-                    f.push_back(idx);
-                    if (check)
-                        std::cout << idx << std::endl;
-                }
-            } else
-            {
-                while (iss >> idx)
-                {
-                    idx--; // in wavefront obj all indices start at 1, not zero
-                    f.push_back(idx);
-                    if (check)
-                        std::cout << idx << std::endl;
-                }
-            }
+            // std::vector<int> f;
+            int v, n, t; // vertex, texture, and normal
+            // TODO: we no longer can support both types of input
+            // the format "1193/1240/1193 1180/..." contains more data than the format "f 16504 16660 16659"
+            // the first format maps faces to the respective index of the vertex, the normal, and the texture arrays
+            // i.e., we assume going forwards that our .obj files contain vertex texture and normal indices
 
-            faces_.push_back(f);
-            check = false;
+            iss >> trash;
+            while (iss >> v >> trash >> t >> trash >> n) {
+                facet_vrt.push_back(--v);
+                facet_tex.push_back(--t);
+                facet_nrm.push_back(--n);
+            }
         } else if (!line.compare(0, 3, "vn ")) {
             iss >> trash;
             iss >> trash;
             Vec3f v;
             for (int i=0;i<3;i++) iss >> v.raw[i];
             normals_.push_back(v);
+        } else if (!line.compare(0, 3, "vt ")) {
+            iss >> trash;
+            iss >> trash;
+            Vec2f uv;
+            for (int i=0;i<2;i++) iss >> uv.raw[i];
+            textureUVs_.push_back({uv.x, 1-uv.y});
         }
     }
+    auto load_texture = [&filename](const std::string suffix, TGAImage &img) {
+        size_t dot = filename.find_last_of(".");
+        if (dot==std::string::npos) return;
+        std::string texfile = filename.substr(0,dot) + suffix;
+        std::cerr << "texture file " << texfile << " loading " << (img.read_tga_file(texfile.c_str()) ? "ok" : "failed") << std::endl;
+    };
+    load_texture("_nm.tga", normalmap_);
 }
 
 Model::~Model() {
@@ -76,15 +70,15 @@ int Model::nverts() {
 }
 
 int Model::nfaces() {
-    return (int)faces_.size();
+    return (int)facet_vrt.size() / 3;
 }
 
 int Model::nnormals() {
     return (int)normals_.size();
 }
 
-std::vector<int> Model::face(int idx) {
-    return faces_[idx];
+int Model::ntextureUVs() {
+    return (int)textureUVs_.size();
 }
 
 Vec3f Model::vert(int i) {
@@ -92,7 +86,7 @@ Vec3f Model::vert(int i) {
 }
 
 Vec3f Model::vert(int face, int i) {
-    return verts_[faces_[face][i]];
+    return verts_[facet_vrt[face*3+i]];
 }
 
 Vec3f Model::normal(int i) {
@@ -100,7 +94,15 @@ Vec3f Model::normal(int i) {
 }
 
 Vec3f Model::normal(int face, int i) {
-    return normals_[faces_[face][i]];
+    return normals_[facet_nrm[face*3+i]];
+}
+
+Vec2f Model::textureUV(int i) {
+    return textureUVs_[i];
+}
+
+Vec2f Model::textureUV(int face, int i) {
+    return textureUVs_[facet_tex[face*3+i]];
 }
 
 void Model::setVert(int i, Vec3f v)
@@ -113,30 +115,3 @@ void Model::setNormal(int i, Vec3f v)
     normals_[i] = v;
 }
 
-void Model::sortFaces()
-{
-    std::vector<int> idx(nfaces());
-    std::iota(idx.begin(), idx.end(), 0);
-
-    std::sort(idx.begin(), idx.end(),
-        [&](int a, int b)
-        {
-            std::vector<int> faceA = Model::face(a);
-            std::vector<int> faceB = Model::face(b);
-
-            float minZA = std::min(Model::vert(faceA[0]).z, std::min(Model::vert(faceA[1]).z, Model::vert(faceA[1]).z));
-            float minZB = std::min(Model::vert(faceB[0]).z, std::min(Model::vert(faceB[1]).z, Model::vert(faceB[1]).z));
-
-            return minZA < minZB;
-        }
-    );
-
-    // std::sort(idx.begin(), idx.end(),)
-    std::vector<std::vector<int>> newFaces(nfaces());
-    for (int i = 0; i < nfaces(); i++)
-    {
-        newFaces[i] = Model::face(idx[i]);
-    }
-
-    faces_ = newFaces;
-}
