@@ -676,11 +676,14 @@ struct RandomShader : IShader {
     virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& barycentric, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
         float ambientMultiplier = 0.5;
         float diffMultiplier = 0.4;
-        float specMultiplier = 0.9;
+        // float specMultiplier = 0.9;
 
         float ambient = ambientMultiplier;
 
         Eigen::Vector2f uv = barycentric[0] * uvs[0] + barycentric[1] * uvs[1] + barycentric[2] * uvs[2];
+
+        // compute specular multiplier
+        float specMultiplier = (float)model->specular(Vec2f{uv(0), uv(1)}).raw[0] / (float)255.;
 
         // comput base color
         TGAColor texture = model->texture(Vec2f{uv(0), uv(1)});
@@ -713,6 +716,7 @@ struct RandomShader : IShader {
         float intensityMultiplier = specular;
         intensityMultiplier = std::min(intensityMultiplier, (float)1.);
         float intensity = 255 * intensityMultiplier;
+        std::cout << "intensity: " << intensity << std::endl;
         float textureMultiplier = diffuse + ambient;
         textureMultiplier = std::min(textureMultiplier, (float)1.);
         TGAColor fragmentColor = { static_cast<unsigned char>(std::min(texture.raw[2]*textureMultiplier + intensity, (float)255.)),

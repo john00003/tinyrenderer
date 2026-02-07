@@ -61,6 +61,7 @@ Model::Model(const std::string filename) : verts_() {
     };
     load_texture("_nm.tga", normalmap_);
     load_texture("_diffuse.tga", texturemap_);
+    load_texture("_spec.tga", specmap_);
 }
 
 Model::~Model() {
@@ -128,6 +129,11 @@ void Model::setNormal(int i, Vec3f v)
 
 TGAColor Model::texture(Vec2f uv){
     TGAColor c = texturemap_.get(uv.u*texturemap_.get_width(), uv.v*texturemap_.get_height());
+    return c;
+}
+
+TGAColor Model::specular(Vec2f uv){
+    TGAColor c = specmap_.get(uv.u*specmap_.get_width(), uv.v*specmap_.get_height());
     return c;
 }
 
