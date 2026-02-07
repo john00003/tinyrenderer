@@ -674,15 +674,18 @@ struct RandomShader : IShader {
     // takes as input the current position on the face being rasterized, the camera position, and the position of the sun/lighting in the scene
     // TODO: when we were trying to compute difference between position and camera, light, etc., we were accidentally passing barycentric coordinates instead of position
     virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& barycentric, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
-        float ambientMultiplier = 0.3;
+        float ambientMultiplier = 0.5;
         float diffMultiplier = 0.4;
         float specMultiplier = 0.9;
 
         float ambient = ambientMultiplier;
 
-        // compute normal to the surface
         Eigen::Vector2f uv = barycentric[0] * uvs[0] + barycentric[1] * uvs[1] + barycentric[2] * uvs[2];
+
+        // comput base color
+        TGAColor texture = model->texture(Vec2f{uv(0), uv(1)});
         
+        // compute normal to the surface
         Vec3f ntemp = model->normal(Vec2f{uv(0), uv(1)});
         Eigen::Vector3f normal = (ModelView.inverse().transpose() * Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3).normalized();
         // std::cout << normal << std::endl;
@@ -692,6 +695,7 @@ struct RandomShader : IShader {
         // compute angle between normal and unit vector facing light source
         float cosa = normal.dot(l);
         float diffuse = std::max((float)0., cosa)*diffMultiplier;
+        // float diffuse = std::clamp(cosa, (float)-1, (float)1)*diffMultiplier;
 
         // compute unit vector of reflected light across normal
         Eigen::Vector3f reflection = (2 * normal * cosa - l).normalized();
@@ -702,13 +706,28 @@ struct RandomShader : IShader {
         // compute specular term
         float specular = (std::pow(std::max((float)0., cosb), e))*specMultiplier;
 
-        float intensityMultiplier = ambient + diffuse + specular;
+        // float intensityMultiplier = ambient + diffuse + specular;
+        // intensityMultiplier = std::min(intensityMultiplier, (float)1.);
+        // float intensity = 255 * intensityMultiplier;
+
+        float intensityMultiplier = specular;
         intensityMultiplier = std::min(intensityMultiplier, (float)1.);
         float intensity = 255 * intensityMultiplier;
-        TGAColor fragmentColor = { static_cast<unsigned char>(intensity),
-                                    static_cast<unsigned char>(intensity),
-                                    static_cast<unsigned char>(intensity),
-                                    255 };
+        float textureMultiplier = diffuse + ambient;
+        textureMultiplier = std::min(textureMultiplier, (float)1.);
+        TGAColor fragmentColor = { static_cast<unsigned char>(std::min(texture.raw[2]*textureMultiplier + intensity, (float)255.)),
+                                    static_cast<unsigned char>(std::min(texture.raw[1]*textureMultiplier + intensity, (float)255.)),
+                                    static_cast<unsigned char>(std::min(texture.raw[0]*textureMultiplier + intensity, (float)255.)),
+                                    255};
+        // TGAColor fragmentColor = { static_cast<unsigned char>(std::min(std::max(texture.raw[2] + intensity, (float)0), (float)255.)),
+        //                             static_cast<unsigned char>(std::min(std::max(texture.raw[1] + intensity, (float)0), (float)255.)),
+        //                             static_cast<unsigned char>(std::min(std::max(texture.raw[0] + intensity, (float)0), (float)255.)),
+                                    // 255 };
+        std::cout << (int)fragmentColor.raw[0] << (int)fragmentColor.raw[1] << (int)fragmentColor.raw[2] << std::endl;
+        // TGAColor fragmentColor = { static_cast<unsigned char>(intensity),
+        //                             static_cast<unsigned char>(intensity),
+        //                             static_cast<unsigned char>(intensity),
+                                    // 255 };
         return {false, fragmentColor};                                    // do not discard the pixel
     }
 };
@@ -955,7 +974,7 @@ int main(int argc, char **argv)
     }
 
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_shaded_normal_map.tga");
+    framebuffer.write_tga_file("framebuffer_textured.tga");
     return 0;
 }
 

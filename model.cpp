@@ -60,6 +60,7 @@ Model::Model(const std::string filename) : verts_() {
         std::cerr << "texture file " << texfile << " loading " << (img.read_tga_file(texfile.c_str()) ? "ok" : "failed") << std::endl;
     };
     load_texture("_nm.tga", normalmap_);
+    load_texture("_diffuse.tga", texturemap_);
 }
 
 Model::~Model() {
@@ -123,5 +124,10 @@ void Model::setVert(int i, Vec3f v)
 void Model::setNormal(int i, Vec3f v)
 {
     normals_[i] = v;
+}
+
+TGAColor Model::texture(Vec2f uv){
+    TGAColor c = texturemap_.get(uv.u*texturemap_.get_width(), uv.v*texturemap_.get_height());
+    return c;
 }
 

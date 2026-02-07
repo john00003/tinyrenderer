@@ -16,6 +16,7 @@ private:
     std::vector<int> facet_nrm = {}; //  │ the size is supposed to be
     std::vector<int> facet_tex = {}; //  ┘ nfaces()*3
     TGAImage normalmap_;
+    TGAImage texturemap_;
 public:
     Model(const std::string filename);
     ~Model();
@@ -30,6 +31,7 @@ public:
     Vec3f normal(Vec2f uv);
     Vec2f textureUV(int i);
     Vec2f textureUV(int face, int i);
+    TGAColor texture(Vec2f uv);
     void setVert(int i, Vec3f v);
     void setNormal(int i, Vec3f n);
     std::vector<int> face(int idx);
