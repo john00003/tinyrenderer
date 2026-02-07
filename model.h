@@ -27,6 +27,7 @@ public:
     Vec3f vert(int face, int i);
     Vec3f normal(int i);
     Vec3f normal(int face, int i);
+    Vec3f normal(Vec2f &uv);
     Vec2f textureUV(int i);
     Vec2f textureUV(int face, int i);
     void setVert(int i, Vec3f v);
