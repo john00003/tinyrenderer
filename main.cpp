@@ -644,8 +644,8 @@ void composeTransformations(std::vector<Vec3i> &integerVertices)
 
 struct RandomShader : IShader {
     TGAColor color = {};
-    Eigen::Vector3f tri[3];  // triangle in eye coordinates
-    Eigen::Vector3f normals[3];  // triangle in eye coordinates
+    // Eigen::Vector3f tri[3];  // triangle in eye coordinates
+    Eigen::Vector2f uvs[3];  // triangle in uv coordinates on 2D texture map
     Eigen::Vector3f l;
 
     RandomShader(const Eigen::Vector3f light){
@@ -654,13 +654,15 @@ struct RandomShader : IShader {
 
     virtual Eigen::Vector4f vertex(const int face, const int vert) {
         Vec3f vtemp = model->vert(face, vert);
-        Vec3f ntemp = model->normal(face, vert);
+        Vec2f uvtemp = model->textureUV(face, vert);
         Eigen::Vector3f v(vtemp.x, vtemp.y, vtemp.z); // current vertex in object coordinates
         // Eigen::Vector3f v = model.vert(face, vert);                          
         Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
-        normals[vert] = (ModelView.inverse().transpose()*Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3);
+        Eigen::Vector2f uv(uvtemp.u, uvtemp.v);
+        uvs[vert] = uv;
+        // normals[vert] = (ModelView.inverse().transpose()*Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3);
         // tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
-        tri[vert] = gl_Position.head(3);                            // in eye coordinates
+        // tri[vert] = gl_Position.head(3);                            // in eye coordinates
         return Perspective * gl_Position;                         // in clip coordinates
     }
 
@@ -679,8 +681,13 @@ struct RandomShader : IShader {
         float ambient = ambientMultiplier;
 
         // compute normal to the surface
+        Eigen::Vector2f uv = barycentric[0] * uvs[0] + barycentric[1] * uvs[1] + barycentric[2] * uvs[2];
+        
+        Vec3f ntemp = model->normal(Vec2f{uv(0), uv(1)});
+        Eigen::Vector3f normal = (ModelView.inverse().transpose() * Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3).normalized();
+        // std::cout << normal << std::endl;
         // Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized();
-        Eigen::Vector3f normal = (barycentric[0] * normals[0] + barycentric[1] * normals[1] + barycentric[2] * normals[2]).normalized();
+        // Eigen::Vector3f normal = (barycentric[0] * normals[0] + barycentric[1] * normals[1] + barycentric[2] * normals[2]).normalized();
 
         // compute angle between normal and unit vector facing light source
         float cosa = normal.dot(l);
@@ -948,7 +955,7 @@ int main(int argc, char **argv)
     }
 
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_shaded_smooth.tga");
+    framebuffer.write_tga_file("framebuffer_shaded_normal_map.tga");
     return 0;
 }
 

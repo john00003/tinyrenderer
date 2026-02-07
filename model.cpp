@@ -97,10 +97,15 @@ Vec3f Model::normal(int face, int i) {
     return normals_[facet_nrm[face*3+i]];
 }
 
-Vec3f Model::normal(Vec2f &uv){
+Vec3f Model::normal(Vec2f uv){
     TGAColor c = normalmap_.get(uv.u*normalmap_.get_width(), uv.v*normalmap_.get_height());
     return Vec3f{(float)c.raw[2], (float)c.raw[1], (float)c.raw[0]}*2.*(1/255.) - Vec3f{1, 1, 1};
 }
+
+// Vec3f Model::normal(Eigen::Vector2f &uv){
+//     TGAColor c = normalmap_.get(uv(0)*normalmap_.get_width(), uv(2)*normalmap_.get_height());
+//     return Vec3f{(float)c.raw[2], (float)c.raw[1], (float)c.raw[0]}*2.*(1/255.) - Vec3f{1, 1, 1};
+// }
 
 Vec2f Model::textureUV(int i) {
     return textureUVs_[i];
