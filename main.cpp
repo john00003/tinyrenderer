@@ -646,6 +646,8 @@ struct RandomShader : IShader {
     TGAColor color = {};
     // Eigen::Vector3f tri[3];  // triangle in eye coordinates
     Eigen::Vector2f uvs[3];  // triangle in uv coordinates on 2D texture map
+    Eigen::Vector4f normals[3]; // normal at each vertex
+    Eigen::Vector4f tri[3]; // triangle in view coordinates
     Eigen::Vector3f l;
 
     RandomShader(const Eigen::Vector3f light){
@@ -660,6 +662,10 @@ struct RandomShader : IShader {
         Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
         Eigen::Vector2f uv(uvtemp.u, uvtemp.v);
         uvs[vert] = uv;
+        Vec3f ntemp = model->normal(face,vert);
+        Eigen::Vector4f temp(ntemp.x, ntemp.y, ntemp.z, 0);
+        normals[vert] = ModelView.inverse().transpose() * temp;
+        tri[vert] = gl_Position;
         // normals[vert] = (ModelView.inverse().transpose()*Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3);
         // tri[vert] = Eigen::Vector3f(gl_Position(0),gl_Position(1),gl_Position(2));                            // in eye coordinates
         // tri[vert] = gl_Position.head(3);                            // in eye coordinates
@@ -675,8 +681,24 @@ struct RandomShader : IShader {
     // TODO: when we were trying to compute difference between position and camera, light, etc., we were accidentally passing barycentric coordinates instead of position
     virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& barycentric, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
         float ambientMultiplier = 0.5;
-        float diffMultiplier = 0.4;
+        // float diffMultiplier = 0.6;
         // float specMultiplier = 0.9;
+        //
+        // Eigen::Matrix<float, 2, 4> E(tri[1] - tri[0], tri[2] - tri[0]);
+        Eigen::Matrix<float,2,4> E;
+        E.row(0) = tri[1] - tri[0];
+        E.row(1) = tri[2] - tri[0];
+        // Eigen::Matrix<float, 2, 2> U(uvs[1] - uvs[0], uvs[2] - uvs[0]);
+        Eigen::Matrix<float,2,2> U;
+        U.row(0) = uvs[1] - uvs[0];
+        U.row(1) = uvs[2] - uvs[0];
+
+        Eigen::Matrix<float, 2, 4> tb = U.inverse() * E;
+        Eigen::Matrix4f D;
+        D.row(0) = tb.row(0).normalized();
+        D.row(1) = tb.row(1).normalized();
+        D.row(2) = (barycentric[0]*normals[0] + barycentric[1] * normals[1] + barycentric[2] * normals[2]).normalized();
+        D.row(3) << 0, 0, 0, 1;
 
         float ambient = ambientMultiplier;
 
@@ -689,15 +711,20 @@ struct RandomShader : IShader {
         TGAColor texture = model->texture(Vec2f{uv(0), uv(1)});
         
         // compute normal to the surface
-        Vec3f ntemp = model->normal(Vec2f{uv(0), uv(1)});
-        Eigen::Vector3f normal = (ModelView.inverse().transpose() * Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3).normalized();
+        // Vec3f ntemp = model->normal(Vec2f{uv(0), uv(1)});
+        // Eigen::Vector3f normal = (ModelView.inverse().transpose() * Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, 0)).head(3).normalized();
+
+        Vec4f ntemp = model->normal(Vec2f{uv(0), uv(1)});
+        Eigen::Vector3f normal = (D.transpose() * Eigen::Vector4f(ntemp.x, ntemp.y, ntemp.z, ntemp.w)).normalized().head(3);
         // std::cout << normal << std::endl;
         // Eigen::Vector3f normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized();
         // Eigen::Vector3f normal = (barycentric[0] * normals[0] + barycentric[1] * normals[1] + barycentric[2] * normals[2]).normalized();
 
         // compute angle between normal and unit vector facing light source
         float cosa = normal.dot(l);
-        float diffuse = std::max((float)0., cosa)*diffMultiplier;
+        // float diffuse = std::max((float)0., cosa)*diffMultiplier;
+        float diffuse = std::max((float)0., cosa);
+        std::cout << "diffuse: " << diffuse << std::endl;
         // float diffuse = std::clamp(cosa, (float)-1, (float)1)*diffMultiplier;
 
         // compute unit vector of reflected light across normal
@@ -707,27 +734,33 @@ struct RandomShader : IShader {
         float cosb = reflection[2];
 
         // compute specular term
-        float specular = (std::pow(std::max((float)0., cosb), e))*specMultiplier;
+        // float specular = (std::pow(std::max((float)0., cosb), e))*specMultiplier;
+        float specular = 3.*model->specular(Vec2f{uv(0), uv(1)}).raw[0]/255. * std::pow(std::max(cosb, (float)0.), 35);
 
         // float intensityMultiplier = ambient + diffuse + specular;
         // intensityMultiplier = std::min(intensityMultiplier, (float)1.);
         // float intensity = 255 * intensityMultiplier;
 
-        float intensityMultiplier = specular;
-        intensityMultiplier = std::min(intensityMultiplier, (float)1.);
-        float intensity = 255 * intensityMultiplier;
-        std::cout << "intensity: " << intensity << std::endl;
-        float textureMultiplier = diffuse + ambient;
-        textureMultiplier = std::min(textureMultiplier, (float)1.);
-        TGAColor fragmentColor = { static_cast<unsigned char>(std::min(texture.raw[2]*textureMultiplier + intensity, (float)255.)),
-                                    static_cast<unsigned char>(std::min(texture.raw[1]*textureMultiplier + intensity, (float)255.)),
-                                    static_cast<unsigned char>(std::min(texture.raw[0]*textureMultiplier + intensity, (float)255.)),
+        // float intensityMultiplier = specular;
+        // intensityMultiplier = std::min(intensityMultiplier, (float)1.);
+        // float intensity = 255 * intensityMultiplier;
+        // // std::cout << "intensity: " << intensity << std::endl;
+        // float textureMultiplier = diffuse + ambient;
+        // textureMultiplier = std::min(textureMultiplier, (float)1.);
+        // TGAColor fragmentColor = { static_cast<unsigned char>(std::min(texture.raw[2]*textureMultiplier + intensity, (float)255.)),
+        //                             static_cast<unsigned char>(std::min(texture.raw[1]*textureMultiplier + intensity, (float)255.)),
+        //                             static_cast<unsigned char>(std::min(texture.raw[0]*textureMultiplier + intensity, (float)255.)),
+        //                             255};
+        float textureMultiplier = diffuse + ambient + specular;
+        TGAColor fragmentColor = { static_cast<unsigned char>(std::min(texture.raw[2]*textureMultiplier, (float)255.)),
+                                    static_cast<unsigned char>(std::min(texture.raw[1]*textureMultiplier, (float)255.)),
+                                    static_cast<unsigned char>(std::min(texture.raw[0]*textureMultiplier, (float)255.)),
                                     255};
         // TGAColor fragmentColor = { static_cast<unsigned char>(std::min(std::max(texture.raw[2] + intensity, (float)0), (float)255.)),
         //                             static_cast<unsigned char>(std::min(std::max(texture.raw[1] + intensity, (float)0), (float)255.)),
         //                             static_cast<unsigned char>(std::min(std::max(texture.raw[0] + intensity, (float)0), (float)255.)),
                                     // 255 };
-        std::cout << (int)fragmentColor.raw[0] << (int)fragmentColor.raw[1] << (int)fragmentColor.raw[2] << std::endl;
+        // std::cout << (int)fragmentColor.raw[0] << (int)fragmentColor.raw[1] << (int)fragmentColor.raw[2] << std::endl;
         // TGAColor fragmentColor = { static_cast<unsigned char>(intensity),
         //                             static_cast<unsigned char>(intensity),
         //                             static_cast<unsigned char>(intensity),
@@ -948,7 +981,7 @@ int main(int argc, char **argv)
     if (2==argc) {
         model = new Model(argv[1]);
     } else {
-        model = new Model("../obj/face.obj");
+        model = new Model("../obj/diablo3_pose.obj");
     }
 
     const int width = 800;
@@ -978,7 +1011,7 @@ int main(int argc, char **argv)
     }
 
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_textured.tga");
+    framebuffer.write_tga_file("framebuffer_tangent_textured.tga");
     return 0;
 }
 
