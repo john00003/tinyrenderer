@@ -47,9 +47,9 @@ template <class t> struct Vec4 {
     Vec4() : x(0), y(0), z(0), w(0) {}
     Vec4(t _x, t _y, t _z, t _w) : x(_x),y(_y),z(_z),w(_w) {}
     //inline Vec4<t> operator ^(const Vec4<t> &v) const { return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
-    inline Vec4<t> operator +(const Vec4<t> &v) const { return Vec3<t>(x+v.x, y+v.y, z+v.z, w+v.w); }
-    inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z, w-v.w); }
-    inline Vec4<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f, w*f); }
+    inline Vec4<t> operator +(const Vec4<t> &v) const { return Vec4<t>(x+v.x, y+v.y, z+v.z, w+v.w); }
+    inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec4<t>(x-v.x, y-v.y, z-v.z, w-v.w); }
+    inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, w*f); }
     inline t       operator *(const Vec4<t> &v) const { return x*v.x + y*v.y + z*v.z + w*v.w; }
     float norm () const { return std::sqrt(x*x+y*y+z*z); }
     Vec4<t> & normalize(t l=1) { *this = (*this)*(l/norm()); return *this; }
