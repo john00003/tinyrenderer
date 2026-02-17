@@ -59,7 +59,7 @@ Model::Model(const std::string filename) : verts_() {
         std::string texfile = filename.substr(0,dot) + suffix;
         std::cerr << "texture file " << texfile << " loading " << (img.read_tga_file(texfile.c_str()) ? "ok" : "failed") << std::endl;
     };
-    load_texture("_nm.tga", normalmap_);
+    load_texture("_nm_tangent.tga", normalmap_);
     load_texture("_diffuse.tga", texturemap_);
     load_texture("_spec.tga", specmap_);
 }
@@ -99,9 +99,9 @@ Vec3f Model::normal(int face, int i) {
     return normals_[facet_nrm[face*3+i]];
 }
 
-Vec3f Model::normal(Vec2f uv){
+Vec4f Model::normal(Vec2f uv){
     TGAColor c = normalmap_.get(uv.u*normalmap_.get_width(), uv.v*normalmap_.get_height());
-    return Vec3f{(float)c.raw[2], (float)c.raw[1], (float)c.raw[0]}*2.*(1/255.) - Vec3f{1, 1, 1};
+    return Vec4f{(float)c.raw[2], (float)c.raw[1], (float)c.raw[0], 0}*2.*(1/255.) - Vec4f{1, 1, 1, 0}.normalize();
 }
 
 // Vec3f Model::normal(Eigen::Vector2f &uv){

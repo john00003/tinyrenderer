@@ -29,7 +29,7 @@ public:
     Vec3f vert(int face, int i);
     Vec3f normal(int i);
     Vec3f normal(int face, int i);
-    Vec3f normal(Vec2f uv);
+    Vec4f normal(Vec2f uv);
     Vec2f textureUV(int i);
     Vec2f textureUV(int face, int i);
     TGAColor texture(Vec2f uv);
