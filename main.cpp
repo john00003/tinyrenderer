@@ -769,6 +769,28 @@ struct RandomShader : IShader {
     }
 };
 
+// for the first pass of shadow mapping
+struct BlankShader : IShader {
+
+    BlankShader(){
+    }
+
+    virtual Eigen::Vector4f vertex(const int face, const int vert) {
+        Vec3f vtemp = model->vert(face, vert);
+        Eigen::Vector3f v(vtemp.x, vtemp.y, vtemp.z); // current vertex in object coordinates
+        Eigen::Vector4f gl_Position = ModelView * Eigen::Vector4f(v(0), v(1), v(2), 1.);
+        return Perspective * gl_Position;                         // in clip coordinates
+    }
+
+    virtual std::pair<bool,TGAColor> fragmentOld(const Eigen::Vector3f bar) const {
+        return {false, TGAColor{255, 255, 255, 255}};                                    // do not discard the pixel
+    }
+
+    virtual std::pair<bool,TGAColor> fragment(const Eigen::Vector3f& barycentric, const Eigen::Vector3f& camera, const Eigen::Vector3f& light) const {
+        return {false, TGAColor{255, 255, 255, 255}};                                    // do not discard the pixel
+    }
+};
+
 // void transformNormals(Eigen::Matrix4f matrix){
 //     for (int i=0; i<model.nnormals()){
 //         Eigen::Vector4f newNormal = matrix*Eigen::Vector4f(model.normal(i)[0], model.normal(i)[1], model.normal(i)[2], 0);
@@ -776,6 +798,30 @@ struct RandomShader : IShader {
 //     }
 // }
 
+void drop_zbuffer(const char* filename, std::vector<std::vector<float>> &zbuffer, int width, int height) {
+    TGAImage zimg(width, height, TGAImage::GRAYSCALE);
+    float minz = +1000;
+    float maxz = -1000;
+    for (int x=0; x<width; x++) {
+        for (int y=0; y<height; y++) {
+            // float z = zbuffer[x+y*width];
+            float z = zbuffer[y][x];
+            if (z<-100) continue;
+            minz = std::min(z, minz);
+            maxz = std::max(z, maxz);
+        }
+    }
+    for (int x=0; x<width; x++) {
+        for (int y=0; y<height; y++) {
+            // float z = zbuffer[x+y*width];
+            float z = zbuffer[y][x];
+            if (z<-100) continue;
+            z = (z - minz)/(maxz-minz) * 255;
+            zimg.set(x, y, {z, 255, 255, 255});
+        }
+    }
+    zimg.write_tga_file(filename);
+}
 
 int main(int argc, char **argv)
 {
@@ -1009,9 +1055,72 @@ int main(int argc, char **argv)
                           shader.vertex(f, 2) };
         rasterize(clip, shader, framebuffer, eye, light);   // rasterize the primitive
     }
-
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_tangent_textured.tga");
+    framebuffer.write_tga_file("framebuffer_before_postprocess.tga");
+    drop_zbuffer("zbuffer1.tga", zbuffer, width, height);
+
+    // save zbuffer for manipulating rendered points later
+    std::vector<std::vector<bool>> mask(height, std::vector<bool>(width));
+    std::vector<std::vector<float>> zbuffer_copy(zbuffer);
+    Eigen::Matrix4f M = (Viewport * Perspective * ModelView).inverse();
+
+    // second pass for global shadow detection
+    generateModelViewMatrix(light, center, up);                                   // build the ModelView   matrix from the perspective of the light
+    generatePerspectiveMatrix((eye-center).norm());                        // build the Perspective matrix
+    generateViewportMatrix(width/16, height/16, width*7/8, height*7/8); // build the Viewport    matrix
+    generateZBuffer(width, height);
+
+    TGAImage shadows(width, height, TGAImage::RGB);
+    // TGAImage shadows(width, height, TGAImage::RGB, {177, 195, 209, 255});
+    BlankShader blankshader{};
+    for (int f=0; f<model->nfaces(); f++) {      // iterate through all facets
+        // shader.color = { std::rand()%255, std::rand()%255, std::rand()%255, 255 };
+        Triangle clip = { blankshader.vertex(f, 0),  // assemble the primitive
+                          blankshader.vertex(f, 1),
+                          blankshader.vertex(f, 2) };
+        rasterize(clip, blankshader, framebuffer, eye, light);   // rasterize the primitive
+    }
+    framebuffer.flip_vertically();
+    framebuffer.write_tga_file("framebuffer_shadows.tga");
+    drop_zbuffer("zbuffer2.tga", zbuffer, width, height);
+    Eigen::Matrix4f N = (Viewport * Perspective * ModelView);
+
+    // identify lit fragments
+    for (int i=0; i<height; i++){
+        for (int j=0; j<width; j++){
+            Eigen::Vector4f fragment = M * Eigen::Vector4f(i, j, zbuffer_copy[i][j], 1);
+            Eigen::Vector4f fragmentFromLight = N*fragment;
+            Eigen::Vector3f fragmentFromLightNonHomogeneous = fragmentFromLight(3) * fragmentFromLight.head(3);
+            bool lit = (fragment[2] < (float)-100 || // fragment is in background, not object being rendered
+                        fragmentFromLightNonHomogeneous[0] < 0 || fragmentFromLightNonHomogeneous[0] >= width || fragmentFromLightNonHomogeneous[1] < 0 || fragmentFromLightNonHomogeneous[1] >= height || // fragment outside of light view
+                        fragmentFromLightNonHomogeneous[2] > zbuffer[(int)fragmentFromLightNonHomogeneous[1]][(int)fragmentFromLightNonHomogeneous[0]]); // fragment not visible from light
+            mask[i][j] = lit;
+        }
+    }
+
+    // write image representing shadows and where they appear
+    TGAImage maskimg(width, height, TGAImage::GRAYSCALE);
+    for (int x=0; x<width; x++) {
+        for (int y=0; y<height; y++) {
+            if (mask[y][x]) continue;
+            maskimg.set(x, y, {255, 255, 255, 255});
+        }
+    }
+    maskimg.write_tga_file("framebuffer_mask.tga");
+
+    // apply shadow mask onto original image
+    for (int x=0; x<width; x++) {
+        for (int y=0; y<height; y++) {
+            if (mask[y][x]) continue;
+            TGAColor c = framebuffer.get(x, y);
+            Eigen::Vector3f a{c.raw[0], c.raw[1], c.raw[2]};
+            if (a.norm()<80) continue;
+            a = a.normalized()*80;
+            framebuffer.set(x, y, { a(0), a(1), a(2), 255 });
+        }
+    }
+    framebuffer.write_tga_file("framebuffer_shadow_final.tga");
+
     return 0;
 }
 
