@@ -1092,7 +1092,7 @@ int main(int argc, char **argv)
         for (int j=0; j<width; j++){
             Eigen::Vector4f fragment = M * Eigen::Vector4f(j, i, zbuffer_copy[i][j], 1);
             Eigen::Vector4f fragmentFromLight = N*fragment;
-            Eigen::Vector3f fragmentFromLightNonHomogeneous = fragmentFromLight(3) * fragmentFromLight.head(3);
+            Eigen::Vector3f fragmentFromLightNonHomogeneous = fragmentFromLight.head(3) / fragmentFromLight(3);
             bool lit = (fragment[2] < (float)-100 || // fragment is in background, not object being rendered
                         fragmentFromLightNonHomogeneous[0] < 0 || fragmentFromLightNonHomogeneous[0] >= width || fragmentFromLightNonHomogeneous[1] < 0 || fragmentFromLightNonHomogeneous[1] >= height || // fragment outside of light view
                         fragmentFromLightNonHomogeneous[2] > zbuffer[(int)fragmentFromLightNonHomogeneous[1]][(int)fragmentFromLightNonHomogeneous[0]]); // fragment not visible from light
