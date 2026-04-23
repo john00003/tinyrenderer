@@ -820,6 +820,7 @@ void drop_zbuffer(const char* filename, std::vector<std::vector<float>> &zbuffer
             zimg.set(x, y, {z, 255, 255, 255});
         }
     }
+    zimg.flip_vertically();
     zimg.write_tga_file(filename);
 }
 
@@ -1057,6 +1058,7 @@ int main(int argc, char **argv)
     }
     framebuffer.flip_vertically();
     framebuffer.write_tga_file("framebuffer_before_postprocess.tga");
+    framebuffer.flip_vertically(); // flip back so subsequent mask application aligns with zbuffer coordinates
     drop_zbuffer("zbuffer1.tga", zbuffer, width, height);
 
     // save zbuffer for manipulating rendered points later
@@ -1078,10 +1080,10 @@ int main(int argc, char **argv)
         Triangle clip = { blankshader.vertex(f, 0),  // assemble the primitive
                           blankshader.vertex(f, 1),
                           blankshader.vertex(f, 2) };
-        rasterize(clip, blankshader, framebuffer, eye, light);   // rasterize the primitive
+        rasterize(clip, blankshader, shadows, eye, light);   // rasterize the primitive
     }
-    framebuffer.flip_vertically();
-    framebuffer.write_tga_file("framebuffer_shadows.tga");
+    shadows.flip_vertically();
+    shadows.write_tga_file("framebuffer_shadows.tga");
     drop_zbuffer("zbuffer2.tga", zbuffer, width, height);
     Eigen::Matrix4f N = (Viewport * Perspective * ModelView);
 
@@ -1106,6 +1108,7 @@ int main(int argc, char **argv)
             maskimg.set(x, y, {255, 255, 255, 255});
         }
     }
+    maskimg.flip_vertically();
     maskimg.write_tga_file("framebuffer_mask.tga");
 
     // apply shadow mask onto original image
