@@ -1116,7 +1116,7 @@ int main(int argc, char **argv)
         for (int y=0; y<height; y++) {
             if (mask[y][x]) continue;
             TGAColor c = framebuffer.get(x, y);
-            Eigen::Vector3f a{c.raw[0], c.raw[1], c.raw[2]};
+            Eigen::Vector3f a{c.raw[2], c.raw[1], c.raw[0]};
             if (a.norm()<80) continue;
             a = a.normalized()*80;
             framebuffer.set(x, y, { a(0), a(1), a(2), 255 });
