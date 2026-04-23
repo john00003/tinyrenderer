@@ -1122,6 +1122,7 @@ int main(int argc, char **argv)
             framebuffer.set(x, y, { a(0), a(1), a(2), 255 });
         }
     }
+    framebuffer.flip_vertically();
     framebuffer.write_tga_file("framebuffer_shadow_final.tga");
 
     return 0;
