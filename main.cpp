@@ -1090,7 +1090,7 @@ int main(int argc, char **argv)
     // identify lit fragments
     for (int i=0; i<height; i++){
         for (int j=0; j<width; j++){
-            Eigen::Vector4f fragment = M * Eigen::Vector4f(i, j, zbuffer_copy[i][j], 1);
+            Eigen::Vector4f fragment = M * Eigen::Vector4f(j, i, zbuffer_copy[i][j], 1);
             Eigen::Vector4f fragmentFromLight = N*fragment;
             Eigen::Vector3f fragmentFromLightNonHomogeneous = fragmentFromLight(3) * fragmentFromLight.head(3);
             bool lit = (fragment[2] < (float)-100 || // fragment is in background, not object being rendered
