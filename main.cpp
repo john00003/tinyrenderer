@@ -817,7 +817,7 @@ void drop_zbuffer(const char* filename, std::vector<std::vector<float>> &zbuffer
             float z = zbuffer[y][x];
             if (z<-100) continue;
             z = (z - minz)/(maxz-minz) * 255;
-            zimg.set(x, y, {z, 255, 255, 255});
+            zimg.set(x, y, {255, 255, z, 255}); // for grayscale images, only the blue value is used to determine intensity, so with RGBA constructor, write distance as third value
         }
     }
     zimg.flip_vertically();
